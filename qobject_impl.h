@@ -1,10 +1,26 @@
 #ifndef QOBJECT_IMPL_H
 #define QOBJECT_IMPL_H
 
+#include <type_traits>
+
 #include "qobject_fwd.h"
 
 namespace QWebChannelPP
 {
+
+// https://stackoverflow.com/questions/27866909/get-function-arity-from-template-parameter
+namespace detail
+{
+template <typename T>
+struct get_arity : get_arity<decltype(&T::operator())> {};
+template <typename R, typename... Args>
+struct get_arity<R(*)(Args...)> : std::integral_constant<unsigned, sizeof...(Args)> {};
+template <typename R, typename C, typename... Args>
+struct get_arity<R(C::*)(Args...)> : std::integral_constant<unsigned, sizeof...(Args)> {};
+template <typename R, typename C, typename... Args>
+struct get_arity<R(C::*)(Args...) const> : std::integral_constant<unsigned, sizeof...(Args)> {};
+}
+
 
 QObject::QObject(std::string name, const json &data, QWebChannel *channel)
     : __id__(name), webChannel(channel)
@@ -42,9 +58,6 @@ QObject::QObject(std::string name, const json &data, QWebChannel *channel)
 QObject::~QObject()
 {
     created_objects().erase(this);
-    for (auto it = qsignals.begin(); it != qsignals.end(); ++it) {
-        delete it->second;
-    }
 }
 
 std::set<QObject *> &QObject::created_objects() {
@@ -92,7 +105,7 @@ void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
     std::string signalName = signalData[0];
     int signalIndex = signalData[1];
 
-    qsignals[signalName] = new Signal(this, signalIndex, signalName, isPropertyNotifySignal);
+    qsignals.emplace(signalName, Signal { signalIndex, signalName, isPropertyNotifySignal });
 }
 
 json QObject::unwrapQObject(const json &response) {
@@ -127,7 +140,7 @@ json QObject::unwrapQObject(const json &response) {
 
     QObject *qObject = new QObject( objectId, response["data"], webChannel );
 
-    signal("destroyed").connect<0>([this, objectId]() {
+    connect("destroyed", [this, objectId]() {
         auto it = webChannel->objects.find(objectId);
         if (it != webChannel->objects.end()) {
             delete it->second;
@@ -183,14 +196,12 @@ void QObject::propertyUpdate(const json &sigs, const json &propertyMap)
 {
     // update property cache
     for (auto it = propertyMap.begin(); it != propertyMap.end(); ++it) {
-        std::cerr << "Property update: " << it.key() << std::endl;
         const int key = std::stoi(it.key());
         __propertyCache__[key] = it.value();
     }
 
     for (auto it = sigs.begin(); it != sigs.end(); ++it) {
         const int key = std::stoi(it.key());
-        std::cerr << "signal: " << it.value() << std::endl;
         // Invoke all callbacks, as signalEmitted() does not. This ensures the
         // property cache is updated before the callbacks are invoked.
         invokeSignalCallbacks(key, it.value());
@@ -206,7 +217,7 @@ void QObject::invokeSignalCallbacks(int signalName, const std::vector<json> &arg
     }
 }
 
-json_unwrap QObject::property(const std::__cxx11::string &name) const
+json_unwrap QObject::property(const std::string &name) const
 {
     auto it = properties.find(name);
     if (it == properties.end()) {
@@ -222,7 +233,7 @@ json_unwrap QObject::property(const std::__cxx11::string &name) const
     return json_unwrap(cacheIt->second);
 }
 
-void QObject::set_property(const std::__cxx11::string &name, const json &value)
+void QObject::set_property(const std::string &name, const json &value)
 {
     auto it = properties.find(name);
     if (it == properties.end()) {
@@ -242,18 +253,91 @@ void QObject::set_property(const std::__cxx11::string &name, const json &value)
     webChannel->exec(msg);
 }
 
-const Signal &QObject::signal(const std::__cxx11::string &name)
+template<size_t N, class T>
+unsigned int QObject::connect(const std::string &name, T &&callback)
 {
-    static Signal Invalid;
+    return connect_impl(name, std::forward<T>(callback), std::make_index_sequence<N>());
+}
 
-    auto it = qsignals.find(name);
+template<class T>
+unsigned int QObject::connect(const std::string &name, T &&callback)
+{
+    return connect<detail::get_arity<std::decay_t<T>>::value>(name, callback);
+}
+
+template<class Callable, size_t... I>
+unsigned int QObject::connect_impl(const std::string &signalName, Callable &&callback, std::index_sequence<I...>)
+{
+    auto it = qsignals.find(signalName);
     if (it == qsignals.end()) {
-        std::cerr << "Signal " << __id__ << "::" << name << " not found";
-        return Invalid;
+        std::cerr << "Signal " << __id__ << "::" << signalName << " not found";
+        return 0;
     }
 
-    return *it->second;
+    const int signalIndex = it->second.signalIndex;
+    const bool isPropertyNotifySignal = it->second.isPropertyNotifySignal;
+
+    QObject::Connection conn {
+        signalName,
+        QObject::Connection::next_id(),
+        [callback](const std::vector<json> &args) {
+            callback(json_unwrap(args.at(I))...);
+        }
+    };
+
+    __objectSignals__.insert(std::make_pair(signalIndex, conn));
+
+    if (!isPropertyNotifySignal && signalName != "destroyed") {
+        // only required for "pure" signals, handled separately for properties in _propertyUpdate
+        // also note that we always get notified about the destroyed signal
+        json msg {
+            { "type", QWebChannelMessageTypes::ConnectToSignal },
+            { "object", __id__ },
+            { "signal", signalIndex },
+        };
+
+        webChannel->exec(msg);
+    }
+
+    return conn.id;
 }
+
+
+bool QObject::disconnect(unsigned int id)
+{
+    auto it = std::find_if(__objectSignals__.begin(), __objectSignals__.end(), [id](const std::pair<int, Connection> &s) {
+        return s.second.id == id;
+    });
+
+    if (it == __objectSignals__.end()) {
+        std::cerr << "QObject::disconnect: No connection with id " << id << std::endl;
+        return false;
+    }
+
+    Connection conn = it->second;
+    __objectSignals__.erase(it);
+
+    auto sigIt = qsignals.find(conn.signalName);
+
+    if (sigIt == qsignals.end()) {
+        std::cerr << "QObject::disconnect: Don't know signal name " << conn.signalName << ". This should not happen!" << std::endl;
+        return false;
+    }
+
+    const Signal &sig = sigIt->second;
+
+    if (!sig.isPropertyNotifySignal && __objectSignals__.count(sig.signalIndex) == 0) {
+        // only required for "pure" signals, handled separately for properties in propertyUpdate
+        webChannel->exec(json {
+            { "type", QWebChannelMessageTypes::DisconnectFromSignal },
+            { "object", __id__ },
+            { "signal", sig.signalIndex },
+        });
+    }
+
+    return true;
+}
+
 
 void QObject::signalEmitted(int signalName, const json &signalArgs)
 {
