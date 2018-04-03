@@ -163,10 +163,41 @@ void QObject::unwrapProperties()
     }
 }
 
+
+namespace detail {
+
+template<unsigned int N> struct priority_tag : priority_tag <N - 1> {};
+template<> struct priority_tag<0> {};
+
+template<class T>
+auto handle_arg(std::vector<json> &, std::function<void(const json &)> &callback, T&& callable, priority_tag<1>) -> decltype(callable(json_unwrap(json())), void())
+{
+    callback = [callable](const json &response) {
+        callable(json_unwrap(response));
+    };
+}
+
+template<class T>
+void handle_arg(std::vector<json> &args, std::function<void(const json &)> &, T &&t, priority_tag<0>)
+{
+    args.push_back(std::forward<T>(t));
+}
+
+}
+
+
 template<class... Args>
 bool QObject::invoke(const std::string &name, Args&& ...args)
 {
-    return invoke(name, { std::forward<Args>(args)... });
+    std::vector<json> jargs;
+    jargs.reserve(sizeof...(Args));
+
+    std::function<void(const json &)> callback;
+
+    using expander = int[];
+    (void) expander { (detail::handle_arg(jargs, callback, args, detail::priority_tag<2> {}), 0)... };
+
+    return invoke(name, static_cast<const std::vector<json>&>(jargs), callback);
 }
 
 bool QObject::invoke(const std::string &name, const std::vector<json> &args, std::function<void (const json &)> callback)
