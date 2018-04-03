@@ -163,6 +163,12 @@ void QObject::unwrapProperties()
     }
 }
 
+template<class... Args>
+bool QObject::invoke(const std::string &name, Args&& ...args)
+{
+    return invoke(name, { std::forward<Args>(args)... });
+}
+
 bool QObject::invoke(const std::string &name, const std::vector<json> &args, std::function<void (const json &)> callback)
 {
     auto it = methods.find(name);

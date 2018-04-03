@@ -70,12 +70,9 @@ public:
     void unwrapProperties();
 
     template<class... Args>
-    bool invoke(const std::string &name, Args&& ...args)
-    {
-        return invoke(name, { std::forward<Args>(args)... });
-    }
-
+    bool invoke(const std::string &name, Args&& ...args);
     bool invoke(const std::string &name, const std::vector<json> &args, std::function<void(const json&)> callback = std::function<void(const json&)>());
+
     void propertyUpdate(const json &sigs, const json &propertyMap);
 
     /**
