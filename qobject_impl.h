@@ -22,12 +22,12 @@ struct get_arity<R(C::*)(Args...) const> : std::integral_constant<unsigned, size
 }
 
 
-QObject::QObject(std::string name, const json &data, QWebChannel *channel)
-    : __id__(name), webChannel(channel)
+QObject::QObject(const std::string &name, const json &data, QWebChannel *channel)
+    : __id__(name), _webChannel(channel)
 {
     created_objects().insert(this);
 
-    webChannel->objects[name] = this;
+    _webChannel->_objects[name] = this;
 
     if (data.count("methods")) {
         for (const json &method : data["methods"]) {
@@ -48,7 +48,7 @@ QObject::QObject(std::string name, const json &data, QWebChannel *channel)
     }
 
     if (data.count("enums")) {
-        enums = data["enums"].get<decltype(enums)>();
+        _enums = data["enums"].get<decltype(_enums)>();
     }
 }
 
@@ -72,7 +72,7 @@ QObject *QObject::convert(uintptr_t ptr) {
 
 void QObject::addMethod(const json &method)
 {
-    methods[method[0].get<std::string>()] = method[1].get<int>();
+    _methods[method[0].get<std::string>()] = method[1].get<int>();
 }
 
 void QObject::bindGetterSetter(const json &propertyInfo)
@@ -94,7 +94,7 @@ void QObject::bindGetterSetter(const json &propertyInfo)
         addSignal(notifySignalData, true);
     }
 
-    properties[propertyName] = propertyIndex;
+    _properties[propertyName] = propertyIndex;
 }
 
 void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
@@ -102,7 +102,7 @@ void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
     std::string signalName = signalData[0];
     int signalIndex = signalData[1];
 
-    qsignals.emplace(signalName, Signal { signalIndex, signalName, isPropertyNotifySignal });
+    _qsignals.emplace(signalName, Signal { signalIndex, signalName, isPropertyNotifySignal });
 }
 
 json QObject::unwrapQObject(const json &response) {
@@ -125,8 +125,8 @@ json QObject::unwrapQObject(const json &response) {
 
     const std::string objectId = response["id"];
 
-    auto it = webChannel->objects.find(objectId);
-    if (it != webChannel->objects.end()) {
+    auto it = _webChannel->_objects.find(objectId);
+    if (it != _webChannel->_objects.end()) {
         return it->second;
     }
 
@@ -135,13 +135,13 @@ json QObject::unwrapQObject(const json &response) {
         return json();
     }
 
-    QObject *qObject = new QObject( objectId, response["data"], webChannel );
+    QObject *qObject = new QObject( objectId, response["data"], _webChannel );
 
     connect("destroyed", [this, objectId]() {
-        auto it = webChannel->objects.find(objectId);
-        if (it != webChannel->objects.end()) {
+        auto it = _webChannel->_objects.find(objectId);
+        if (it != _webChannel->_objects.end()) {
             delete it->second;
-            webChannel->objects.erase(it);
+            _webChannel->_objects.erase(it);
         }
     });
 
@@ -199,8 +199,8 @@ bool QObject::invoke(const std::string &name, Args&& ...args)
 
 bool QObject::invoke(const std::string &name, const std::vector<json> &args, std::function<void (const json &)> callback)
 {
-    auto it = methods.find(name);
-    if (it == methods.end()) {
+    auto it = _methods.find(name);
+    if (it == _methods.end()) {
         std::cerr << "Unknown method " << __id__ << "::" << name << std::endl;
         return false;
     }
@@ -214,7 +214,7 @@ bool QObject::invoke(const std::string &name, const std::vector<json> &args, std
         { "object", __id__ },
     };
 
-    webChannel->exec(msg, [this, callback](const json &response) {
+    _webChannel->exec(msg, [this, callback](const json &response) {
         if (!response.is_null()) {
             json result = unwrapQObject(response);
             if (callback) {
@@ -253,8 +253,8 @@ void QObject::invokeSignalCallbacks(int signalName, const std::vector<json> &arg
 
 json_unwrap QObject::property(const std::string &name) const
 {
-    auto it = properties.find(name);
-    if (it == properties.end()) {
+    auto it = _properties.find(name);
+    if (it == _properties.end()) {
         std::cerr << "Property " << __id__ << "::" << name << " not found.";
         return json_unwrap(json());
     }
@@ -269,8 +269,8 @@ json_unwrap QObject::property(const std::string &name) const
 
 void QObject::set_property(const std::string &name, const json &value)
 {
-    auto it = properties.find(name);
-    if (it == properties.end()) {
+    auto it = _properties.find(name);
+    if (it == _properties.end()) {
         std::cerr << "Property " << __id__ << "::" << name << " not found.";
         return;
     }
@@ -284,7 +284,7 @@ void QObject::set_property(const std::string &name, const json &value)
         { "object", __id__ },
     };
 
-    webChannel->exec(msg);
+    _webChannel->exec(msg);
 }
 
 template<size_t N, class T>
@@ -302,8 +302,8 @@ unsigned int QObject::connect(const std::string &name, T &&callback)
 template<class Callable, size_t... I>
 unsigned int QObject::connect_impl(const std::string &signalName, Callable &&callback, std::index_sequence<I...>)
 {
-    auto it = qsignals.find(signalName);
-    if (it == qsignals.end()) {
+    auto it = _qsignals.find(signalName);
+    if (it == _qsignals.end()) {
         std::cerr << "Signal " << __id__ << "::" << signalName << " not found";
         return 0;
     }
@@ -330,7 +330,7 @@ unsigned int QObject::connect_impl(const std::string &signalName, Callable &&cal
             { "signal", signalIndex },
         };
 
-        webChannel->exec(msg);
+        _webChannel->exec(msg);
     }
 
     return conn.id;
@@ -351,9 +351,9 @@ bool QObject::disconnect(unsigned int id)
     Connection conn = it->second;
     __objectSignals__.erase(it);
 
-    auto sigIt = qsignals.find(conn.signalName);
+    auto sigIt = _qsignals.find(conn.signalName);
 
-    if (sigIt == qsignals.end()) {
+    if (sigIt == _qsignals.end()) {
         std::cerr << "QObject::disconnect: Don't know signal name " << conn.signalName << ". This should not happen!" << std::endl;
         return false;
     }
@@ -362,7 +362,7 @@ bool QObject::disconnect(unsigned int id)
 
     if (!sig.isPropertyNotifySignal && __objectSignals__.count(sig.signalIndex) == 0) {
         // only required for "pure" signals, handled separately for properties in propertyUpdate
-        webChannel->exec(json {
+        _webChannel->exec(json {
             { "type", QWebChannelMessageTypes::DisconnectFromSignal },
             { "object", __id__ },
             { "signal", sig.signalIndex },

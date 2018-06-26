@@ -77,17 +77,18 @@ class QObject;
 class QWebChannel
 {
 public:
-    std::map<std::string, QObject*> objects;
-
     typedef std::function<void(QWebChannel*)> InitCallbackHandler;
     typedef std::function<void(const json &)> CallbackHandler;
 
     QWebChannel(Transport &transport, InitCallbackHandler initCallback = InitCallbackHandler());
 
+    const std::map<std::string, QObject*> &objects() const { return _objects; }
+
+private:
     void connection_made(const json &data);
-    void send(const json &o);
     void message_handler(const std::string &msg);
 
+    void send(const json &o);
     void exec(json data, CallbackHandler callback = CallbackHandler());
 
     void handle_signal(const json &message);
@@ -99,11 +100,12 @@ public:
         this->send(json { { "type", QWebChannelMessageTypes::Debug }, { "data", message } });
     }
 
-private:
     friend class QObject;
     friend class QSignal;
 
     Transport &transport;
+
+    std::map<std::string, QObject*> _objects;
 
     InitCallbackHandler initCallback;
     std::map<unsigned int, CallbackHandler> execCallbacks;

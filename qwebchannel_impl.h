@@ -24,7 +24,7 @@ void QWebChannel::connection_made(const json &data)
     }
 
     // now unwrap properties, which might reference other registered objects
-    for (const auto &kv : objects) {
+    for (const auto &kv : _objects) {
         kv.second->unwrapProperties();
     }
     if (initCallback) {
@@ -84,8 +84,8 @@ void QWebChannel::exec(json data, CallbackHandler callback)
 
 void QWebChannel::handle_signal(const json &message)
 {
-    auto it = this->objects.find(message["object"].get<std::string>());
-    if (it != this->objects.end()) {
+    auto it = this->_objects.find(message["object"].get<std::string>());
+    if (it != this->_objects.end()) {
         it->second->signalEmitted(message["signal"].get<int>(), message["args"]);
     } else {
         std::cerr << "Unhandled signal: " << message["object"] << "::" << message["signal"] << std::endl;
@@ -108,8 +108,8 @@ void QWebChannel::handle_response(const json &message)
 void QWebChannel::handle_property_update(const json &message)
 {
     for (const json &data : message["data"]) {
-        auto it = this->objects.find(data["object"].get<std::string>());
-        if (it != this->objects.end()) {
+        auto it = this->_objects.find(data["object"].get<std::string>());
+        if (it != this->_objects.end()) {
             it->second->propertyUpdate(data["signals"], data["properties"]);
         } else {
             std::cerr << "Unhandled property update: " << data["object"] << "::" << data["signal"] << std::endl;
