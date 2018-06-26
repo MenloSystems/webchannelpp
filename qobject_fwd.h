@@ -123,7 +123,7 @@ void to_json(json &j, QObject *qobj)
 {
     j = json {
         { "id", qobj->__id__ }
-};
+    };
 }
 
 }
