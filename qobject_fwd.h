@@ -18,7 +18,6 @@ class Signal;
 
 class QObject
 {
-public:
     struct Signal {
         int signalIndex;
         std::string signalName;
@@ -43,7 +42,6 @@ public:
         std::function<void(const std::vector<json> &args)> callback;
     };
 
-private:
     std::string __id__;
 
     std::map<std::string, std::map<std::string, int>> _enums;
