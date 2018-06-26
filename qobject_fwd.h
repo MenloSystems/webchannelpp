@@ -45,7 +45,7 @@ public:
 
     std::string __id__;
 
-    std::map<std::string, int> enums;
+    std::map<std::string, std::map<std::string, int>> enums;
     std::map<std::string, int> methods;
     std::map<std::string, int> properties;
     std::map<std::string, Signal> qsignals;

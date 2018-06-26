@@ -48,10 +48,7 @@ QObject::QObject(std::string name, const json &data, QWebChannel *channel)
     }
 
     if (data.count("enums")) {
-        json eObject = data["enums"];
-        for (auto enumPair = eObject.begin(); enumPair != eObject.end(); ++enumPair) {
-            enums[enumPair.key()] = enumPair.value().get<int>();
-        }
+        enums = data["enums"].get<decltype(enums)>();
     }
 }
 
