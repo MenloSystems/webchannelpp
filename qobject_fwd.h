@@ -12,9 +12,6 @@ namespace QWebChannelPP
 {
 
 using json = nlohmann::json;
-using namespace std::placeholders;
-
-class Signal;
 
 class QObject
 {

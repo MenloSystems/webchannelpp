@@ -13,7 +13,7 @@ QWebChannel::QWebChannel(Transport &transport, InitCallbackHandler initCallback)
     transport.register_message_handler(std::bind(&QWebChannel::message_handler, this, std::placeholders::_1));
 
     this->exec(json { { "type", QWebChannelMessageTypes::Init } },
-               std::bind(&QWebChannel::connection_made, this, _1));
+               std::bind(&QWebChannel::connection_made, this, std::placeholders::_1));
 }
 
 

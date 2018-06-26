@@ -12,7 +12,6 @@ namespace QWebChannelPP
 {
 
 using json = nlohmann::json;
-using namespace std::placeholders;
 
 class Transport
 {
@@ -27,21 +26,11 @@ struct json_unwrap
 {
     json _json;
 
-    explicit json_unwrap(json &&j)
-        : _json(j)
-    {
-    }
-
-    explicit json_unwrap(const json &j)
-        : _json(j)
-    {
-    }
+    explicit json_unwrap(json &&j) : _json(j) {}
+    explicit json_unwrap(const json &j) : _json(j) {}
 
     template<class T>
-    operator T()
-    {
-        return _json.get<T>();
-    }
+    operator T() { return _json.get<T>(); }
 
     template<class T>
     operator T*()
