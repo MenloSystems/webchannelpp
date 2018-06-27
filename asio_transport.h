@@ -13,7 +13,7 @@
 
 #include "qwebchannel_fwd.h"
 
-namespace QWebChannelPP
+namespace WebChannelPP
 {
 
 class AsioTransport : public Transport

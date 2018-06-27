@@ -13,7 +13,7 @@
 
 #include "qobject_fwd.h"
 
-namespace QWebChannelPP
+namespace WebChannelPP
 {
 
 // https://stackoverflow.com/questions/27866909/get-function-arity-from-template-parameter

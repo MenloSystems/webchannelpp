@@ -12,7 +12,7 @@
 #include "qwebchannel_fwd.h"
 #include "qobject_fwd.h"
 
-namespace QWebChannelPP
+namespace WebChannelPP
 {
 
 QWebChannel::QWebChannel(Transport &transport, InitCallbackHandler initCallback)

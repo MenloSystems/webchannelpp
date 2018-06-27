@@ -16,7 +16,7 @@
 
 #include "json.hpp"
 
-namespace QWebChannelPP
+namespace WebChannelPP
 {
 
 using json = nlohmann::json;
