@@ -1,3 +1,11 @@
+/*
+ * This file is part of WebChannel++.
+ * Copyright (C) 2016 - 2018, Menlo Systems GmbH
+ * Copyright (C) 2016 The Qt Company Ltd.
+ * Copyright (C) 2016 Klarälvdalens Datakonsult AB, a KDAB Group company
+ * License: Dual-licensed under LGPLv3 and GPLv2+
+ */
+
 #ifndef QWEBCHANNEL_FWD_H
 #define QWEBCHANNEL_FWD_H
 

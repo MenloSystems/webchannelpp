@@ -1,3 +1,9 @@
+/*
+ * This file is part of WebChannel++.
+ * Copyright (C) 2018, Menlo Systems GmbH
+ * License: Dual-licensed under LGPLv3 and GPLv2+
+ */
+
 #ifndef ASIO_TRANSPORT_H
 #define ASIO_TRANSPORT_H
 
