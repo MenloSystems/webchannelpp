@@ -21,6 +21,10 @@ namespace QWebChannelPP
 
 using json = nlohmann::json;
 
+/// @brief Abstract transport class.
+///
+/// The transport calls the registered message handle when a new message arives.
+/// `send` sends a message over the transport.
 class Transport
 {
 public:
@@ -30,6 +34,8 @@ public:
     virtual void register_message_handler(message_handler handler) = 0;
 };
 
+/// @brief Thin helper class for implicitly converting natively supported json
+///        data types as well as object pointers
 struct json_unwrap
 {
     json _json;
@@ -77,8 +83,11 @@ public:
     typedef std::function<void(QWebChannel*)> InitCallbackHandler;
     typedef std::function<void(const json &)> CallbackHandler;
 
+    /// @brief Initializes the webchannel with the given `transport`. Optionally, an `initCallback`
+    ///        can be invoked when the webchannel has successfully been initialized.
     QWebChannel(Transport &transport, InitCallbackHandler initCallback = InitCallbackHandler());
 
+    /// @brief Returns a map of all objects exported by the webchannel
     const std::map<std::string, QObject*> &objects() const { return _objects; }
 
 private:

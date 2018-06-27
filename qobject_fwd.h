@@ -60,51 +60,68 @@ class QObject
     QWebChannel *_webChannel;
 
 public:
-    QObject(const std::string &name, const json &data, QWebChannel *channel);
     ~QObject();
 
     QWebChannel *webChannel() const { return _webChannel; }
 
+    /// @brief Returns a mapping of defined enums
     const decltype(_enums) & enums() const { return _enums; }
 
+    /// @brief Returns the set of method names of this object
     std::set<std::string> methods() const {
         std::set<std::string> methNames;
         for (auto &kv : _methods) methNames.insert(kv.first);
         return methNames;
     }
 
+    /// @brief Returns the set of property names of this object
     std::set<std::string> properties() const {
         std::set<std::string> propNames;
         for (auto &kv : _properties) propNames.insert(kv.first);
         return propNames;
     }
 
+    /// @brief Returns the set of signal names of this object
     std::set<std::string> signalNames() const {
         std::set<std::string> sigNames;
         for (auto &kv : _qsignals) sigNames.insert(kv.first);
         return sigNames;
     }
 
-    inline static std::set<QObject*> &created_objects();
-    inline static QObject *convert(std::uintptr_t ptr);
-
+    /// @brief Invokes a method `name` with specified arguments `args`. If one argument is callable,
+    ///        it is used as the callback when the method call has finished.
     template<class... Args>
     bool invoke(const std::string &name, Args&& ...args);
+    /// @brief Invokes a method `name` with specified arguments `args`. `callback` is invoked when the method call has finished.
     bool invoke(const std::string &name, const std::vector<json> &args, std::function<void(const json&)> callback = std::function<void(const json&)>());
 
+    /// @brief Connects `callback` to the signal `name`. `N` is the number of arguments.
+    /// @return The connection id.
     template<size_t N, class T>
     unsigned int connect(const std::string &name, T &&callback);
+    /// @brief Connects `callback` to the signal `name`.
+    /// @return The connection id.
     template<class T>
     unsigned int connect(const std::string &name, T &&callback);
-    template<class Callable, size_t... I>
-    unsigned int connect_impl(const std::string &signal, Callable &&callable, std::index_sequence<I...>);
+
+    /// @brief Breaks the connection with identifier `id`.
     bool disconnect(unsigned int id);
 
+    /// @brief Gets the value of property `name`
     json_unwrap property(const std::string &name) const;
+    /// @brief Sets the value of property `name` to `value`
     void set_property(const std::string &name, const json &value);
-    const Signal &signal(const std::string &name);
 
 private:
+    QObject(const std::string &name, const json &data, QWebChannel *channel);
+
+    inline static std::set<QObject*> &created_objects();
+
+    inline static QObject *convert(std::uintptr_t ptr);
+
+    template<class Callable, size_t... I>
+    unsigned int connect_impl(const std::string &signal, Callable &&callable, std::index_sequence<I...>);
+
     void addMethod(const json &method);
     void bindGetterSetter(const json &propertyInfo);
     void addSignal(const json &signalData, bool isPropertyNotifySignal);
