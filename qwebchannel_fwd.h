@@ -14,7 +14,7 @@
 #include <iostream>
 #include <map>
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 
 namespace WebChannelPP
 {

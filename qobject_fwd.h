@@ -13,7 +13,7 @@
 #include <set>
 #include <string>
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 #include "qwebchannel_fwd.h"
 
 namespace WebChannelPP
