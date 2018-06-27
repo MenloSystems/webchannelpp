@@ -14,7 +14,11 @@
 #include <iostream>
 #include <map>
 
+#ifndef WEBCHANNELPP_USE_GLOBAL_JSON
 #include "nlohmann/json.hpp"
+#else
+#include <json.hpp>
+#endif
 
 namespace WebChannelPP
 {

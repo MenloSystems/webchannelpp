@@ -13,7 +13,11 @@
 #include <set>
 #include <string>
 
+#ifndef WEBCHANNELPP_USE_GLOBAL_JSON
 #include "nlohmann/json.hpp"
+#else
+#include <json.hpp>
+#endif
 #include "qwebchannel_fwd.h"
 
 namespace WebChannelPP
