@@ -68,25 +68,13 @@ public:
     const decltype(_enums) & enums() const { return _enums; }
 
     /// @brief Returns the set of method names of this object
-    std::set<std::string> methods() const {
-        std::set<std::string> methNames;
-        for (auto &kv : _methods) methNames.insert(kv.first);
-        return methNames;
-    }
+    std::set<std::string> methods() const;
 
     /// @brief Returns the set of property names of this object
-    std::set<std::string> properties() const {
-        std::set<std::string> propNames;
-        for (auto &kv : _properties) propNames.insert(kv.first);
-        return propNames;
-    }
+    std::set<std::string> properties() const;
 
     /// @brief Returns the set of signal names of this object
-    std::set<std::string> signalNames() const {
-        std::set<std::string> sigNames;
-        for (auto &kv : _qsignals) sigNames.insert(kv.first);
-        return sigNames;
-    }
+    std::set<std::string> signalNames() const;
 
     /// @brief Invokes a method `name` with specified arguments `args`. If one argument is callable,
     ///        it is used as the callback when the method call has finished.

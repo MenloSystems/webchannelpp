@@ -65,6 +65,24 @@ QObject::~QObject()
     created_objects().erase(this);
 }
 
+std::set<std::string> QObject::methods() const {
+    std::set<std::string> methNames;
+    for (auto &kv : _methods) methNames.insert(kv.first);
+    return methNames;
+}
+
+std::set<std::string> QObject::properties() const {
+    std::set<std::string> propNames;
+    for (auto &kv : _properties) propNames.insert(kv.first);
+    return propNames;
+}
+
+std::set<std::string> QObject::signalNames() const {
+    std::set<std::string> sigNames;
+    for (auto &kv : _qsignals) sigNames.insert(kv.first);
+    return sigNames;
+}
+
 std::set<QObject *> &QObject::created_objects() {
     static std::set<QObject*> set;
     return set;
