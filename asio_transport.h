@@ -10,8 +10,6 @@
 namespace QWebChannelPP
 {
 
-using namespace std::placeholders;
-
 class AsioTransport : public Transport
 {
     asio::ip::tcp::socket &m_socket;
@@ -27,6 +25,7 @@ public:
 
     void async_read_more()
     {
+        using namespace std::placeholders;
         m_socket.async_read_some(asio::null_buffers(), std::bind(&AsioTransport::read_some, this, _1, _2));
     }
 
