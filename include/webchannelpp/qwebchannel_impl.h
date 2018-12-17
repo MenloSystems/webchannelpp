@@ -15,7 +15,7 @@
 namespace WebChannelPP
 {
 
-QWebChannel::QWebChannel(Transport &transport, InitCallbackHandler initCallback)
+inline QWebChannel::QWebChannel(Transport &transport, InitCallbackHandler initCallback)
     : transport(transport), initCallback(initCallback)
 {
     transport.register_message_handler(std::bind(&QWebChannel::message_handler, this, std::placeholders::_1));
@@ -25,7 +25,7 @@ QWebChannel::QWebChannel(Transport &transport, InitCallbackHandler initCallback)
 }
 
 
-void QWebChannel::connection_made(const json &data)
+inline void QWebChannel::connection_made(const json &data)
 {
     for (auto prop = data.begin(); prop != data.end(); ++prop) {
         new QObject(prop.key(), prop.value(), this);
@@ -43,13 +43,13 @@ void QWebChannel::connection_made(const json &data)
 }
 
 
-void QWebChannel::send(const json &o)
+inline void QWebChannel::send(const json &o)
 {
     transport.send(o.dump());
 }
 
 
-void QWebChannel::message_handler(const std::string &msg)
+inline void QWebChannel::message_handler(const std::string &msg)
 {
     json data = json::parse(msg);
 
@@ -71,7 +71,7 @@ void QWebChannel::message_handler(const std::string &msg)
 }
 
 
-void QWebChannel::exec(json data, CallbackHandler callback)
+inline void QWebChannel::exec(json data, CallbackHandler callback)
 {
     if (!callback) {
         // if no callback is given, send directly
@@ -90,7 +90,7 @@ void QWebChannel::exec(json data, CallbackHandler callback)
 }
 
 
-void QWebChannel::handle_signal(const json &message)
+inline void QWebChannel::handle_signal(const json &message)
 {
     auto it = this->_objects.find(message["object"].get<std::string>());
     if (it != this->_objects.end()) {
@@ -101,7 +101,7 @@ void QWebChannel::handle_signal(const json &message)
 }
 
 
-void QWebChannel::handle_response(const json &message)
+inline void QWebChannel::handle_response(const json &message)
 {
     if (!message.count("id")) {
         std::cerr << "Invalid response message received: " << message << std::endl;
@@ -113,7 +113,7 @@ void QWebChannel::handle_response(const json &message)
 }
 
 
-void QWebChannel::handle_property_update(const json &message)
+inline void QWebChannel::handle_property_update(const json &message)
 {
     for (const json &data : message["data"]) {
         auto it = this->_objects.find(data["object"].get<std::string>());

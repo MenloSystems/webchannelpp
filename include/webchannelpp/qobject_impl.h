@@ -30,7 +30,7 @@ struct get_arity<R(C::*)(Args...) const> : std::integral_constant<unsigned, size
 }
 
 
-QObject::QObject(const std::string &name, const json &data, QWebChannel *channel)
+inline QObject::QObject(const std::string &name, const json &data, QWebChannel *channel)
     : __id__(name), _webChannel(channel)
 {
     created_objects().insert(this);
@@ -65,30 +65,30 @@ QObject::~QObject()
     created_objects().erase(this);
 }
 
-std::set<std::string> QObject::methods() const {
+inline std::set<std::string> QObject::methods() const {
     std::set<std::string> methNames;
     for (auto &kv : _methods) methNames.insert(kv.first);
     return methNames;
 }
 
-std::set<std::string> QObject::properties() const {
+inline std::set<std::string> QObject::properties() const {
     std::set<std::string> propNames;
     for (auto &kv : _properties) propNames.insert(kv.first);
     return propNames;
 }
 
-std::set<std::string> QObject::signalNames() const {
+inline std::set<std::string> QObject::signalNames() const {
     std::set<std::string> sigNames;
     for (auto &kv : _qsignals) sigNames.insert(kv.first);
     return sigNames;
 }
 
-std::set<QObject *> &QObject::created_objects() {
+inline std::set<QObject *> &QObject::created_objects() {
     static std::set<QObject*> set;
     return set;
 }
 
-QObject *QObject::convert(uintptr_t ptr) {
+inline QObject *QObject::convert(uintptr_t ptr) {
     QObject *obj = reinterpret_cast<QObject*>(ptr);
     if (created_objects().find(obj) == created_objects().end()) {
         return nullptr;
@@ -96,12 +96,12 @@ QObject *QObject::convert(uintptr_t ptr) {
     return obj;
 }
 
-void QObject::addMethod(const json &method)
+inline void QObject::addMethod(const json &method)
 {
     _methods[method[0].get<std::string>()] = method[1].get<int>();
 }
 
-void QObject::bindGetterSetter(const json &propertyInfo)
+inline void QObject::bindGetterSetter(const json &propertyInfo)
 {
     int propertyIndex = propertyInfo[0];
     std::string propertyName = propertyInfo[1];
@@ -123,7 +123,7 @@ void QObject::bindGetterSetter(const json &propertyInfo)
     _properties[propertyName] = propertyIndex;
 }
 
-void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
+inline void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
 {
     std::string signalName = signalData[0];
     int signalIndex = signalData[1];
@@ -131,7 +131,7 @@ void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
     _qsignals.emplace(signalName, Signal { signalIndex, signalName, isPropertyNotifySignal });
 }
 
-json QObject::unwrapQObject(const json &response) {
+inline json QObject::unwrapQObject(const json &response) {
     if (response.is_array()) {
         // support list of objects
         json copy = response;
@@ -179,7 +179,7 @@ json QObject::unwrapQObject(const json &response) {
     };
 }
 
-void QObject::unwrapProperties()
+inline void QObject::unwrapProperties()
 {
     for (auto it = __propertyCache__.begin(); it != __propertyCache__.end(); ++it) {
         it->second = unwrapQObject(it->second);
@@ -210,7 +210,7 @@ void handle_arg(std::vector<json> &args, std::function<void(const json &)> &, T 
 
 
 template<class... Args>
-bool QObject::invoke(const std::string &name, Args&& ...args)
+inline bool QObject::invoke(const std::string &name, Args&& ...args)
 {
     std::vector<json> jargs;
     jargs.reserve(sizeof...(Args));
@@ -223,7 +223,7 @@ bool QObject::invoke(const std::string &name, Args&& ...args)
     return invoke(name, static_cast<const std::vector<json>&>(jargs), callback);
 }
 
-bool QObject::invoke(const std::string &name, const std::vector<json> &args, std::function<void (const json &)> callback)
+inline bool QObject::invoke(const std::string &name, const std::vector<json> &args, std::function<void (const json &)> callback)
 {
     auto it = _methods.find(name);
     if (it == _methods.end()) {
@@ -252,7 +252,7 @@ bool QObject::invoke(const std::string &name, const std::vector<json> &args, std
     return true;
 }
 
-void QObject::propertyUpdate(const json &sigs, const json &propertyMap)
+inline void QObject::propertyUpdate(const json &sigs, const json &propertyMap)
 {
     // update property cache
     for (auto it = propertyMap.begin(); it != propertyMap.end(); ++it) {
@@ -268,7 +268,7 @@ void QObject::propertyUpdate(const json &sigs, const json &propertyMap)
     }
 }
 
-void QObject::invokeSignalCallbacks(int signalName, const std::vector<json> &args)
+inline void QObject::invokeSignalCallbacks(int signalName, const std::vector<json> &args)
 {
     auto values = __objectSignals__.equal_range(signalName);
 
@@ -277,7 +277,7 @@ void QObject::invokeSignalCallbacks(int signalName, const std::vector<json> &arg
     }
 }
 
-json_unwrap QObject::property(const std::string &name) const
+inline json_unwrap QObject::property(const std::string &name) const
 {
     auto it = _properties.find(name);
     if (it == _properties.end()) {
@@ -293,7 +293,7 @@ json_unwrap QObject::property(const std::string &name) const
     return json_unwrap(cacheIt->second);
 }
 
-void QObject::set_property(const std::string &name, const json &value)
+inline void QObject::set_property(const std::string &name, const json &value)
 {
     auto it = _properties.find(name);
     if (it == _properties.end()) {
@@ -363,7 +363,7 @@ unsigned int QObject::connect_impl(const std::string &signalName, Callable &&cal
 }
 
 
-bool QObject::disconnect(unsigned int id)
+inline bool QObject::disconnect(unsigned int id)
 {
     auto it = std::find_if(__objectSignals__.begin(), __objectSignals__.end(), [id](const std::pair<int, Connection> &s) {
         return s.second.id == id;
@@ -399,7 +399,7 @@ bool QObject::disconnect(unsigned int id)
 }
 
 
-void QObject::signalEmitted(int signalName, const json &signalArgs)
+inline void QObject::signalEmitted(int signalName, const json &signalArgs)
 {
     json unwrapped = unwrapQObject(signalArgs);
     invokeSignalCallbacks(signalName, unwrapped);
