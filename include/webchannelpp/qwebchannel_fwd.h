@@ -38,8 +38,7 @@ public:
     virtual void register_message_handler(message_handler handler) = 0;
 };
 
-/// @brief Thin helper class for implicitly converting natively supported json
-///        data types as well as object pointers
+/// @brief Thin helper class for implicitly converting json data types
 struct json_unwrap
 {
     json _json;
@@ -49,21 +48,6 @@ struct json_unwrap
 
     template<class T>
     operator T() { return _json.get<T>(); }
-
-    template<class T>
-    operator T*()
-    {
-        if (_json.is_null()) {
-            return nullptr;
-        }
-
-        if (!_json.is_object() || !_json.count("__ptr__")) {
-            std::cerr << "JSON object " << _json << " does not point to a native object!" << std::endl;
-            return nullptr;
-        }
-
-        return dynamic_cast<T*>(T::convert(_json["__ptr__"].get<std::uintptr_t>()));
-    }
 };
 
 enum QWebChannelMessageTypes {

@@ -153,9 +153,7 @@ inline json QObject::unwrapQObject(const json &response) {
 
     auto it = _webChannel->_objects.find(objectId);
     if (it != _webChannel->_objects.end()) {
-        return json {
-            { "__ptr__", std::uintptr_t(it->second) }
-        };
+        return it->second;
     }
 
     if (!response.count("data")) {
@@ -176,9 +174,7 @@ inline json QObject::unwrapQObject(const json &response) {
     // here we are already initialized, and thus must directly unwrap the properties
     qObject->unwrapProperties();
 
-    return json {
-        { "__ptr__", std::uintptr_t(qObject) }
-    };
+    return qObject;
 }
 
 inline void QObject::unwrapProperties()
@@ -225,7 +221,7 @@ inline bool QObject::invoke(const std::string &name, Args&& ...args)
     return invoke(name, static_cast<const std::vector<json>&>(jargs), callback);
 }
 
-inline bool QObject::invoke(const std::string &name, const std::vector<json> &args, std::function<void (const json &)> callback)
+inline bool QObject::invoke(const std::string &name, std::vector<json> args, std::function<void (const json &)> callback)
 {
     auto it = _methods.find(name);
     if (it == _methods.end()) {
@@ -234,6 +230,12 @@ inline bool QObject::invoke(const std::string &name, const std::vector<json> &ar
     }
 
     const int methodIdx = it->second;
+
+    for (json &j : args) {
+        if (j.count("__ptr__")) {
+            j = { { "id", j.get<QObject::Ptr>()->id() } };
+        }
+    }
 
     json msg {
         { "type", QWebChannelMessageTypes::InvokeMethod },
@@ -303,12 +305,17 @@ inline void QObject::set_property(const std::string &name, const json &value)
         return;
     }
 
-    __propertyCache__[it->second] = unwrapQObject(value);
+    __propertyCache__[it->second] = value;
+
+    json sendval = value;
+    if (sendval.count("__ptr__")) {
+        sendval = { { "id", sendval.get<QObject::Ptr>()->id() } };
+    }
 
     json msg {
         { "type", QWebChannelMessageTypes::SetProperty },
         { "property", it->second },
-        { "value", value },
+        { "value", sendval },
         { "object", __id__ },
     };
 

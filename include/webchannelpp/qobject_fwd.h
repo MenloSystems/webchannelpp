@@ -64,6 +64,24 @@ class QObject
     QWebChannel *_webChannel;
 
 public:
+    /// @brief Transparent pointer class for use in QObject* (de-)serialization
+    struct Ptr
+    {
+        QObject *ptr;
+
+        Ptr() : ptr(nullptr) {}
+        Ptr(QObject *ptr) : ptr(ptr) {}
+        Ptr(const Ptr &) = default;
+        Ptr(Ptr &&) = default;
+        Ptr &operator=(const Ptr& other) = default;
+
+        QObject *get() const { return *this; }
+        QObject *operator->() const { return ptr; }
+        QObject &operator*() const { return *ptr; }
+        operator QObject*() const { return ptr; }
+        operator bool() const { return bool(ptr); }
+    };
+
     ~QObject();
 
     QWebChannel *webChannel() const { return _webChannel; }
@@ -85,7 +103,7 @@ public:
     template<class... Args>
     bool invoke(const std::string &name, Args&& ...args);
     /// @brief Invokes a method `name` with specified arguments `args`. `callback` is invoked when the method call has finished.
-    bool invoke(const std::string &name, const std::vector<json> &args, std::function<void(const json&)> callback = std::function<void(const json&)>());
+    bool invoke(const std::string &name, std::vector<json> args, std::function<void(const json&)> callback = std::function<void(const json&)>());
 
     /// @brief Connects `callback` to the signal `name`. `N` is the number of arguments.
     /// @return The connection id.
@@ -104,9 +122,9 @@ public:
     /// @brief Sets the value of property `name` to `value`
     void set_property(const std::string &name, const json &value);
 
-private:
-    friend struct json_unwrap;
+    std::string id() const { return __id__; }
 
+private:
     QObject(const std::string &name, const json &data, QWebChannel *channel);
 
     inline static std::set<QObject*> &created_objects();
@@ -130,7 +148,7 @@ private:
     void invokeSignalCallbacks(int signalName, const std::vector<json> &args);
     void signalEmitted(int signalName, const json &signalArgs);
 
-    friend void to_json(json &j, QObject *qobj);
+    friend void from_json(const json &j, QObject *&o);
     friend class QWebChannel;
 };
 
@@ -138,10 +156,36 @@ private:
 void to_json(json &j, QObject *qobj)
 {
     j = json {
-        { "__QObject*__", true },
-        { "id", qobj->__id__ }
+        { "__ptr__", std::uintptr_t(qobj) },
     };
 }
+
+void to_json(json &j, QObject::Ptr qobj)
+{
+    to_json(j, qobj.ptr);
+}
+
+void from_json(const json &j, QObject *&o)
+{
+    if (j.is_null()) {
+        o = nullptr;
+        return;
+    }
+
+    if (!j.is_object() || !j.count("__ptr__")) {
+        std::cerr << "JSON object " << j << " does not point to a native object!" << std::endl;
+        o = nullptr;
+        return;
+    }
+
+    o = QObject::convert(j["__ptr__"].get<std::uintptr_t>());
+}
+
+void from_json(const json &j, QObject::Ptr &o)
+{
+    from_json(j, o.ptr);
+}
+
 
 }
 
