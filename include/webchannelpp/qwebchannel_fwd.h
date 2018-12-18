@@ -58,7 +58,7 @@ struct json_unwrap
         }
 
         if (!_json.is_object() || !_json.count("__ptr__")) {
-            std::cerr << "JSON object does not point to a native object!" << std::endl;
+            std::cerr << "JSON object " << _json << " does not point to a native object!" << std::endl;
             return nullptr;
         }
 

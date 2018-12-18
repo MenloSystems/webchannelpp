@@ -153,7 +153,9 @@ inline json QObject::unwrapQObject(const json &response) {
 
     auto it = _webChannel->_objects.find(objectId);
     if (it != _webChannel->_objects.end()) {
-        return it->second;
+        return json {
+            { "__ptr__", std::uintptr_t(it->second) }
+        };
     }
 
     if (!response.count("data")) {
@@ -301,7 +303,7 @@ inline void QObject::set_property(const std::string &name, const json &value)
         return;
     }
 
-    __propertyCache__[it->second] = value;
+    __propertyCache__[it->second] = unwrapQObject(value);
 
     json msg {
         { "type", QWebChannelMessageTypes::SetProperty },

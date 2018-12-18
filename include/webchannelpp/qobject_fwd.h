@@ -105,6 +105,8 @@ public:
     void set_property(const std::string &name, const json &value);
 
 private:
+    friend struct json_unwrap;
+
     QObject(const std::string &name, const json &data, QWebChannel *channel);
 
     inline static std::set<QObject*> &created_objects();
@@ -136,6 +138,7 @@ private:
 void to_json(json &j, QObject *qobj)
 {
     j = json {
+        { "__QObject*__", true },
         { "id", qobj->__id__ }
     };
 }
