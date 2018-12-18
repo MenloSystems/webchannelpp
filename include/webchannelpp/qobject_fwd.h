@@ -127,9 +127,9 @@ public:
 private:
     QObject(const std::string &name, const json &data, QWebChannel *channel);
 
-    inline static std::set<QObject*> &created_objects();
+    static std::set<QObject*> &created_objects();
 
-    inline static QObject *convert(std::uintptr_t ptr);
+    static QObject *convert(std::uintptr_t ptr);
 
     template<class Callable, size_t... I>
     unsigned int connect_impl(const std::string &signal, Callable &&callable, std::index_sequence<I...>);
@@ -153,19 +153,19 @@ private:
 };
 
 
-void to_json(json &j, QObject *qobj)
+inline void to_json(json &j, QObject *qobj)
 {
     j = json {
         { "__ptr__", std::uintptr_t(qobj) },
     };
 }
 
-void to_json(json &j, QObject::Ptr qobj)
+inline void to_json(json &j, QObject::Ptr qobj)
 {
     to_json(j, qobj.ptr);
 }
 
-void from_json(const json &j, QObject *&o)
+inline void from_json(const json &j, QObject *&o)
 {
     if (j.is_null()) {
         o = nullptr;
@@ -181,7 +181,7 @@ void from_json(const json &j, QObject *&o)
     o = QObject::convert(j["__ptr__"].get<std::uintptr_t>());
 }
 
-void from_json(const json &j, QObject::Ptr &o)
+inline void from_json(const json &j, QObject::Ptr &o)
 {
     from_json(j, o.ptr);
 }

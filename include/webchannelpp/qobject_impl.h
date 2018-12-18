@@ -60,7 +60,7 @@ inline QObject::QObject(const std::string &name, const json &data, QWebChannel *
     }
 }
 
-QObject::~QObject()
+inline QObject::~QObject()
 {
     created_objects().erase(this);
 }
