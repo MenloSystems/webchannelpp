@@ -57,6 +57,7 @@ class QObject
     std::map<std::string, int> _methods;
     std::map<std::string, int> _properties;
     std::map<std::string, Signal> _qsignals;
+    std::map<int, std::string> _propertyNotifySignalMap;
 
     std::map<int, json> __propertyCache__;
     std::multimap<int, Connection> __objectSignals__;
@@ -98,6 +99,9 @@ public:
     /// @brief Returns the set of signal names of this object
     std::set<std::string> signalNames() const;
 
+    /// @brief Returns the notify signal name for a given object
+    std::string notifySignalForProperty(const std::string &property) const;
+
     /// @brief Invokes a method `name` with specified arguments `args`. If one argument is callable,
     ///        it is used as the callback when the method call has finished.
     template<class... Args>
@@ -113,6 +117,9 @@ public:
     /// @return The connection id.
     template<class T>
     unsigned int connect(const std::string &name, T &&callback);
+    /// @brief Connects `callback` to the signal `name`.
+    /// @return The connection id.
+    unsigned int connect(const std::string &signalName, std::function<void(const std::vector<json> &)> callback);
 
     /// @brief Breaks the connection with identifier `id`.
     bool disconnect(unsigned int id);
@@ -185,7 +192,6 @@ inline void from_json(const json &j, QObject::Ptr &o)
 {
     from_json(j, o.ptr);
 }
-
 
 }
 

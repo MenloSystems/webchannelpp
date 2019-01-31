@@ -83,6 +83,19 @@ inline std::set<std::string> QObject::signalNames() const {
     return sigNames;
 }
 
+inline std::string QObject::notifySignalForProperty(const std::string &property) const {
+    auto idIterator = _properties.find(property);
+    if (idIterator == _properties.cend()) {
+        return std::string();
+    }
+
+    auto signalIterator = _propertyNotifySignalMap.find(idIterator->second);
+    if (signalIterator == _propertyNotifySignalMap.cend()) {
+        return std::string();
+    }
+    return signalIterator->second;
+}
+
 inline std::set<QObject *> &QObject::created_objects() {
     static std::set<QObject*> set;
     return set;
@@ -118,6 +131,7 @@ inline void QObject::bindGetterSetter(const json &propertyInfo)
             notifySignalData[0] = propertyName + "Changed";
         }
         addSignal(notifySignalData, true);
+        _propertyNotifySignalMap[propertyIndex] = notifySignalData[0];
     }
 
     _properties[propertyName] = propertyIndex;
@@ -335,6 +349,15 @@ unsigned int QObject::connect(const std::string &name, T &&callback)
 template<class Callable, size_t... I>
 unsigned int QObject::connect_impl(const std::string &signalName, Callable &&callback, std::index_sequence<I...>)
 {
+    return connect(signalName, static_cast<std::function<void (const std::vector<json> &)>>(
+                   [callback](const std::vector<json> &args)
+    {
+        callback(json_unwrap(args.at(I))...);
+    }));
+}
+
+inline unsigned int QObject::connect(const std::string &signalName, std::function<void (const std::vector<json> &)> callback)
+{
     auto it = _qsignals.find(signalName);
     if (it == _qsignals.end()) {
         std::cerr << "Signal " << __id__ << "::" << signalName << " not found";
@@ -347,9 +370,7 @@ unsigned int QObject::connect_impl(const std::string &signalName, Callable &&cal
     QObject::Connection conn {
         signalName,
         QObject::Connection::next_id(),
-        [callback](const std::vector<json> &args) {
-            callback(json_unwrap(args.at(I))...);
-        }
+        callback
     };
 
     __objectSignals__.insert(std::make_pair(signalIndex, conn));
@@ -368,7 +389,6 @@ unsigned int QObject::connect_impl(const std::string &signalName, Callable &&cal
 
     return conn.id;
 }
-
 
 inline bool QObject::disconnect(unsigned int id)
 {
