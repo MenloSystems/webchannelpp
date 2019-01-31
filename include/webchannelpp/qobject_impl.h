@@ -245,11 +245,9 @@ inline bool QObject::invoke(const std::string &name, std::vector<json> args, std
     };
 
     _webChannel->exec(msg, [this, callback](const json &response) {
-        if (!response.is_null()) {
-            json result = unwrapQObject(response);
-            if (callback) {
-                callback(result);
-            }
+        json result = unwrapQObject(response);
+        if (callback) {
+            callback(result);
         }
     });
 
