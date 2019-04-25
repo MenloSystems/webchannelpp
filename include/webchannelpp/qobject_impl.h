@@ -285,14 +285,16 @@ inline bool BasicQObject<Json>::invoke(const string_t &name, std::vector<json_t>
 template<class Json>
 inline void BasicQObject<Json>::propertyUpdate(const json_t &sigs, const json_t &propertyMap)
 {
+    using std::stoi;
+
     // update property cache
     for (auto it = propertyMap.begin(); it != propertyMap.end(); ++it) {
-        const int key = std::stoi(it.key());
+        const int key = stoi(it.key());
         __propertyCache__[key] = it.value();
     }
 
     for (auto it = sigs.begin(); it != sigs.end(); ++it) {
-        const int key = std::stoi(it.key());
+        const int key = stoi(it.key());
         // Invoke all callbacks, as signalEmitted() does not. This ensures the
         // property cache is updated before the callbacks are invoked.
         invokeSignalCallbacks(key, it.value());
