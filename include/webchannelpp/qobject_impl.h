@@ -29,8 +29,8 @@ template <typename R, typename C, typename... Args>
 struct get_arity<R(C::*)(Args...) const> : std::integral_constant<unsigned, sizeof...(Args)> {};
 }
 
-
-inline QObject::QObject(const std::string &name, const json &data, QWebChannel *channel)
+template<class Json>
+inline BasicQObject<Json>::BasicQObject(const string_t &name, const json_t &data, BasicQWebChannel<json_t> *channel)
     : __id__(name), _webChannel(channel)
 {
     created_objects().insert(this);
@@ -38,95 +38,104 @@ inline QObject::QObject(const std::string &name, const json &data, QWebChannel *
     _webChannel->_objects[name] = this;
 
     if (data.count("methods")) {
-        for (const json &method : data["methods"]) {
+        for (const json_t &method : data["methods"]) {
             addMethod(method);
         }
     }
 
     if (data.count("properties")) {
-        for (const json &property : data["properties"]) {
+        for (const json_t &property : data["properties"]) {
             bindGetterSetter(property);
         }
     }
 
     if (data.count("signals")) {
-        for (const json &signal : data["signals"]) {
+        for (const json_t &signal : data["signals"]) {
             addSignal(signal, false);
         }
     }
 
     if (data.count("enums")) {
-        _enums = data["enums"].get<decltype(_enums)>();
+        _enums = data["enums"].template get<decltype(_enums)>();
     }
 }
 
-inline QObject::~QObject()
+template<class Json>
+inline BasicQObject<Json>::~BasicQObject()
 {
     created_objects().erase(this);
 }
 
-inline std::set<std::string> QObject::methods() const {
-    std::set<std::string> methNames;
+template<class Json>
+inline std::set<typename BasicQObject<Json>::string_t> BasicQObject<Json>::methods() const {
+    std::set<string_t> methNames;
     for (auto &kv : _methods) methNames.insert(kv.first);
     return methNames;
 }
 
-inline std::set<std::string> QObject::properties() const {
-    std::set<std::string> propNames;
+template<class Json>
+inline std::set<typename BasicQObject<Json>::string_t> BasicQObject<Json>::properties() const {
+    std::set<string_t> propNames;
     for (auto &kv : _properties) propNames.insert(kv.first);
     return propNames;
 }
 
-inline std::set<std::string> QObject::signalNames() const {
-    std::set<std::string> sigNames;
+template<class Json>
+inline std::set<typename BasicQObject<Json>::string_t> BasicQObject<Json>::signalNames() const {
+    std::set<string_t> sigNames;
     for (auto &kv : _qsignals) sigNames.insert(kv.first);
     return sigNames;
 }
 
-inline std::string QObject::notifySignalForProperty(const std::string &property) const {
+template<class Json>
+inline typename BasicQObject<Json>::string_t BasicQObject<Json>::notifySignalForProperty(const string_t &property) const {
     auto idIterator = _properties.find(property);
     if (idIterator == _properties.cend()) {
-        return std::string();
+        return string_t();
     }
 
     auto signalIterator = _propertyNotifySignalMap.find(idIterator->second);
     if (signalIterator == _propertyNotifySignalMap.cend()) {
-        return std::string();
+        return string_t();
     }
     return signalIterator->second;
 }
 
-inline std::set<QObject *> &QObject::created_objects() {
-    static std::set<QObject*> set;
+template<class Json>
+inline std::set<BasicQObject<Json> *> &BasicQObject<Json>::created_objects() {
+    static std::set<BasicQObject*> set;
     return set;
 }
 
-inline QObject *QObject::convert(uintptr_t ptr) {
-    QObject *obj = reinterpret_cast<QObject*>(ptr);
+template<class Json>
+inline BasicQObject<Json> *BasicQObject<Json>::convert(uintptr_t ptr) {
+    BasicQObject *obj = reinterpret_cast<BasicQObject*>(ptr);
     if (created_objects().find(obj) == created_objects().end()) {
         return nullptr;
     }
     return obj;
 }
 
-inline void QObject::addMethod(const json &method)
+template<class Json>
+inline void BasicQObject<Json>::addMethod(const json_t &method)
 {
-    _methods[method[0].get<std::string>()] = method[1].get<int>();
+    _methods[method[0].template get<string_t>()] = method[1].template get<int>();
 }
 
-inline void QObject::bindGetterSetter(const json &propertyInfo)
+template<class Json>
+inline void BasicQObject<Json>::bindGetterSetter(const json_t &propertyInfo)
 {
     int propertyIndex = propertyInfo[0];
-    std::string propertyName = propertyInfo[1];
-    json notifySignalData = propertyInfo[2];
+    string_t propertyName = propertyInfo[1];
+    json_t notifySignalData = propertyInfo[2];
 
     // initialize property cache with current value
     // NOTE: if this is an object, it is not directly unwrapped as it might
-    // reference other QObject that we do not know yet
+    // reference other BasicQObject that we do not know yet
     __propertyCache__[propertyIndex] = propertyInfo[3];
 
     if (notifySignalData.size() > 0) {
-        if (notifySignalData[0].is_number() && notifySignalData[0].get<int>() == 1) {
+        if (notifySignalData[0].is_number() && notifySignalData[0].template get<int>() == 1) {
             // signal name is optimized away, reconstruct the actual name
             notifySignalData[0] = propertyName + "Changed";
         }
@@ -137,33 +146,35 @@ inline void QObject::bindGetterSetter(const json &propertyInfo)
     _properties[propertyName] = propertyIndex;
 }
 
-inline void QObject::addSignal(const json &signalData, bool isPropertyNotifySignal)
+template<class Json>
+inline void BasicQObject<Json>::addSignal(const json_t &signalData, bool isPropertyNotifySignal)
 {
-    std::string signalName = signalData[0];
+    string_t signalName = signalData[0];
     int signalIndex = signalData[1];
 
     _qsignals.emplace(signalName, Signal { signalIndex, signalName, isPropertyNotifySignal });
 }
 
-inline json QObject::unwrapQObject(const json &response) {
+template<class Json>
+inline Json BasicQObject<Json>::unwrapBasicQObject(const json_t &response) {
     if (response.is_array()) {
         // support list of objects
-        json copy = response;
-        for (json &j : copy) {
-            j = unwrapQObject(j);
+        json_t copy = response;
+        for (json_t &j : copy) {
+            j = unwrapBasicQObject(j);
         }
         return copy;
     }
 
     if (!(response.is_object())
             || response.is_null()
-            || !response.count("__QObject*__")
+            || !response.count("__BasicQObject*__")
             || !response.count("id"))
     {
         return response;
     }
 
-    const std::string objectId = response["id"];
+    const string_t objectId = response["id"];
 
     auto it = _webChannel->_objects.find(objectId);
     if (it != _webChannel->_objects.end()) {
@@ -171,11 +182,11 @@ inline json QObject::unwrapQObject(const json &response) {
     }
 
     if (!response.count("data")) {
-        std::cerr << "Cannot unwrap unknown QObject " << objectId << " without data.";
-        return json();
+        std::cerr << "Cannot unwrap unknown BasicQObject " << objectId << " without data.";
+        return json_t();
     }
 
-    QObject *qObject = new QObject( objectId, response["data"], _webChannel );
+    BasicQObject *qObject = new BasicQObject( objectId, response["data"], _webChannel );
 
     connect("destroyed", [this, objectId]() {
         auto it = _webChannel->_objects.find(objectId);
@@ -191,10 +202,11 @@ inline json QObject::unwrapQObject(const json &response) {
     return qObject;
 }
 
-inline void QObject::unwrapProperties()
+template<class Json>
+inline void BasicQObject<Json>::unwrapProperties()
 {
     for (auto it = __propertyCache__.begin(); it != __propertyCache__.end(); ++it) {
-        it->second = unwrapQObject(it->second);
+        it->second = unwrapBasicQObject(it->second);
     }
 }
 
@@ -204,16 +216,16 @@ namespace detail {
 template<unsigned int N> struct priority_tag : priority_tag <N - 1> {};
 template<> struct priority_tag<0> {};
 
-template<class T>
-auto handle_arg(std::vector<json> &, std::function<void(const json &)> &callback, T&& callable, priority_tag<1>) -> decltype(callable(json_unwrap(json())), void())
+template<class Json, class T>
+auto handle_arg(std::vector<Json> &, std::function<void(const Json &)> &callback, T&& callable, priority_tag<1>) -> decltype(callable(json_unwrap<Json>(Json())), void())
 {
-    callback = [callable](const json &response) {
-        callable(json_unwrap(response));
+    callback = [callable](const Json &response) {
+        callable(json_unwrap<Json>(response));
     };
 }
 
-template<class T>
-void handle_arg(std::vector<json> &args, std::function<void(const json &)> &, T &&t, priority_tag<0>)
+template<class Json, class T>
+void handle_arg(std::vector<Json> &args, std::function<void(const Json &)> &, T &&t, priority_tag<0>)
 {
     args.push_back(std::forward<T>(t));
 }
@@ -221,21 +233,23 @@ void handle_arg(std::vector<json> &args, std::function<void(const json &)> &, T 
 }
 
 
+template<class Json>
 template<class... Args>
-inline bool QObject::invoke(const std::string &name, Args&& ...args)
+inline bool BasicQObject<Json>::invoke(const string_t &name, Args&& ...args)
 {
-    std::vector<json> jargs;
+    std::vector<json_t> jargs;
     jargs.reserve(sizeof...(Args));
 
-    std::function<void(const json &)> callback;
+    std::function<void(const json_t &)> callback;
 
     using expander = int[];
     (void) expander { (detail::handle_arg(jargs, callback, args, detail::priority_tag<2> {}), 0)... };
 
-    return invoke(name, static_cast<const std::vector<json>&>(jargs), callback);
+    return invoke(name, static_cast<const std::vector<json_t>&>(jargs), callback);
 }
 
-inline bool QObject::invoke(const std::string &name, std::vector<json> args, std::function<void (const json &)> callback)
+template<class Json>
+inline bool BasicQObject<Json>::invoke(const string_t &name, std::vector<json_t> args, std::function<void (const json_t &)> callback)
 {
     auto it = _methods.find(name);
     if (it == _methods.end()) {
@@ -245,21 +259,21 @@ inline bool QObject::invoke(const std::string &name, std::vector<json> args, std
 
     const int methodIdx = it->second;
 
-    for (json &j : args) {
+    for (json_t &j : args) {
         if (j.count("__ptr__")) {
-            j = { { "id", j.get<QObject::Ptr>()->id() } };
+            j = { { "id", j.template get<BasicQObject::Ptr>()->id() } };
         }
     }
 
-    json msg {
-        { "type", QWebChannelMessageTypes::InvokeMethod },
+    json_t msg {
+        { "type", BasicQWebChannelMessageTypes::InvokeMethod },
         { "method", methodIdx },
         { "args", args },
         { "object", __id__ },
     };
 
-    _webChannel->exec(msg, [this, callback](const json &response) {
-        json result = unwrapQObject(response);
+    _webChannel->exec(msg, [this, callback](const json_t &response) {
+        json_t result = unwrapBasicQObject(response);
         if (callback) {
             callback(result);
         }
@@ -268,7 +282,8 @@ inline bool QObject::invoke(const std::string &name, std::vector<json> args, std
     return true;
 }
 
-inline void QObject::propertyUpdate(const json &sigs, const json &propertyMap)
+template<class Json>
+inline void BasicQObject<Json>::propertyUpdate(const json_t &sigs, const json_t &propertyMap)
 {
     // update property cache
     for (auto it = propertyMap.begin(); it != propertyMap.end(); ++it) {
@@ -284,7 +299,8 @@ inline void QObject::propertyUpdate(const json &sigs, const json &propertyMap)
     }
 }
 
-inline void QObject::invokeSignalCallbacks(int signalName, const std::vector<json> &args)
+template<class Json>
+inline void BasicQObject<Json>::invokeSignalCallbacks(int signalName, const std::vector<json_t> &args)
 {
     auto values = __objectSignals__.equal_range(signalName);
 
@@ -293,23 +309,25 @@ inline void QObject::invokeSignalCallbacks(int signalName, const std::vector<jso
     }
 }
 
-inline json_unwrap QObject::property(const std::string &name) const
+template<class Json>
+inline json_unwrap<Json> BasicQObject<Json>::property(const string_t &name) const
 {
     auto it = _properties.find(name);
     if (it == _properties.end()) {
         std::cerr << "Property " << __id__ << "::" << name << " not found.";
-        return json_unwrap(json());
+        return json_unwrap<json_t>(json_t());
     }
 
     auto cacheIt = __propertyCache__.find(it->second);
     if (cacheIt == __propertyCache__.end()) {
-        return json_unwrap(json());
+        return json_unwrap<json_t>(json_t());
     }
 
-    return json_unwrap(cacheIt->second);
+    return json_unwrap<json_t>(cacheIt->second);
 }
 
-inline void QObject::set_property(const std::string &name, const json &value)
+template<class Json>
+inline void BasicQObject<Json>::set_property(const string_t &name, const json_t &value)
 {
     auto it = _properties.find(name);
     if (it == _properties.end()) {
@@ -319,13 +337,13 @@ inline void QObject::set_property(const std::string &name, const json &value)
 
     __propertyCache__[it->second] = value;
 
-    json sendval = value;
+    json_t sendval = value;
     if (sendval.count("__ptr__")) {
-        sendval = { { "id", sendval.get<QObject::Ptr>()->id() } };
+        sendval = { { "id", sendval.template get<BasicQObject::Ptr>()->id() } };
     }
 
-    json msg {
-        { "type", QWebChannelMessageTypes::SetProperty },
+    json_t msg {
+        { "type", BasicQWebChannelMessageTypes::SetProperty },
         { "property", it->second },
         { "value", sendval },
         { "object", __id__ },
@@ -334,29 +352,33 @@ inline void QObject::set_property(const std::string &name, const json &value)
     _webChannel->exec(msg);
 }
 
+template<class Json>
 template<size_t N, class T>
-unsigned int QObject::connect(const std::string &name, T &&callback)
+unsigned int BasicQObject<Json>::connect(const string_t &name, T &&callback)
 {
     return connect_impl(name, std::forward<T>(callback), std::make_index_sequence<N>());
 }
 
+template<class Json>
 template<class T>
-unsigned int QObject::connect(const std::string &name, T &&callback)
+unsigned int BasicQObject<Json>::connect(const string_t &name, T &&callback)
 {
     return connect<detail::get_arity<std::decay_t<T>>::value>(name, callback);
 }
 
+template<class Json>
 template<class Callable, size_t... I>
-unsigned int QObject::connect_impl(const std::string &signalName, Callable &&callback, std::index_sequence<I...>)
+unsigned int BasicQObject<Json>::connect_impl(const string_t &signalName, Callable &&callback, std::index_sequence<I...>)
 {
-    return connect(signalName, static_cast<std::function<void (const std::vector<json> &)>>(
-                   [callback](const std::vector<json> &args)
+    return connect(signalName, static_cast<std::function<void (const std::vector<json_t> &)>>(
+                   [callback](const std::vector<json_t> &args)
     {
-        callback(json_unwrap(args.at(I))...);
+        callback(json_unwrap<json_t>(args.at(I))...);
     }));
 }
 
-inline unsigned int QObject::connect(const std::string &signalName, std::function<void (const std::vector<json> &)> callback)
+template<class Json>
+inline unsigned int BasicQObject<Json>::connect(const string_t &signalName, std::function<void (const std::vector<json_t> &)> callback)
 {
     auto it = _qsignals.find(signalName);
     if (it == _qsignals.end()) {
@@ -367,9 +389,9 @@ inline unsigned int QObject::connect(const std::string &signalName, std::functio
     const int signalIndex = it->second.signalIndex;
     const bool isPropertyNotifySignal = it->second.isPropertyNotifySignal;
 
-    QObject::Connection conn {
+    BasicQObject<Json>::Connection conn {
         signalName,
-        QObject::Connection::next_id(),
+        BasicQObject<Json>::Connection::next_id(),
         callback
     };
 
@@ -378,8 +400,8 @@ inline unsigned int QObject::connect(const std::string &signalName, std::functio
     if (!isPropertyNotifySignal && signalName != "destroyed") {
         // only required for "pure" signals, handled separately for properties in _propertyUpdate
         // also note that we always get notified about the destroyed signal
-        json msg {
-            { "type", QWebChannelMessageTypes::ConnectToSignal },
+        json_t msg {
+            { "type", BasicQWebChannelMessageTypes::ConnectToSignal },
             { "object", __id__ },
             { "signal", signalIndex },
         };
@@ -390,14 +412,15 @@ inline unsigned int QObject::connect(const std::string &signalName, std::functio
     return conn.id;
 }
 
-inline bool QObject::disconnect(unsigned int id)
+template<class Json>
+inline bool BasicQObject<Json>::disconnect(unsigned int id)
 {
     auto it = std::find_if(__objectSignals__.begin(), __objectSignals__.end(), [id](const std::pair<int, Connection> &s) {
         return s.second.id == id;
     });
 
     if (it == __objectSignals__.end()) {
-        std::cerr << "QObject::disconnect: No connection with id " << id << std::endl;
+        std::cerr << "BasicQObject::disconnect: No connection with id " << id << std::endl;
         return false;
     }
 
@@ -407,7 +430,7 @@ inline bool QObject::disconnect(unsigned int id)
     auto sigIt = _qsignals.find(conn.signalName);
 
     if (sigIt == _qsignals.end()) {
-        std::cerr << "QObject::disconnect: Don't know signal name " << conn.signalName << ". This should not happen!" << std::endl;
+        std::cerr << "BasicQObject::disconnect: Don't know signal name " << conn.signalName << ". This should not happen!" << std::endl;
         return false;
     }
 
@@ -415,8 +438,8 @@ inline bool QObject::disconnect(unsigned int id)
 
     if (!sig.isPropertyNotifySignal && __objectSignals__.count(sig.signalIndex) == 0) {
         // only required for "pure" signals, handled separately for properties in propertyUpdate
-        _webChannel->exec(json {
-            { "type", QWebChannelMessageTypes::DisconnectFromSignal },
+        _webChannel->exec(json_t {
+            { "type", BasicQWebChannelMessageTypes::DisconnectFromSignal },
             { "object", __id__ },
             { "signal", sig.signalIndex },
         });
@@ -425,10 +448,10 @@ inline bool QObject::disconnect(unsigned int id)
     return true;
 }
 
-
-inline void QObject::signalEmitted(int signalName, const json &signalArgs)
+template<class Json>
+inline void BasicQObject<Json>::signalEmitted(int signalName, const json_t &signalArgs)
 {
-    json unwrapped = unwrapQObject(signalArgs);
+    json_t unwrapped = unwrapBasicQObject(signalArgs);
     invokeSignalCallbacks(signalName, unwrapped);
 }
 

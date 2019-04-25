@@ -11,7 +11,7 @@
 
 #include <map>
 #include <set>
-#include <string>
+#include <iostream>
 
 #ifndef WEBCHANNELPP_USE_GLOBAL_JSON
 #include "nlohmann/json.hpp"
@@ -23,13 +23,18 @@
 namespace WebChannelPP
 {
 
-using json = nlohmann::json;
+template<class Json>
+void from_json(const Json &j, BasicQObject<Json> *&o);
 
-class QObject
+template<class Json = nlohmann::json>
+class BasicQObject
 {
+    using json_t = Json;
+    using string_t = typename json_t::string_t;
+
     struct Signal {
         int signalIndex;
-        std::string signalName;
+        string_t signalName;
         bool isPropertyNotifySignal;
     };
 
@@ -46,133 +51,137 @@ class QObject
             return gid;
         }
 
-        std::string signalName;
+        string_t signalName;
         unsigned int id;
-        std::function<void(const std::vector<json> &args)> callback;
+        std::function<void(const std::vector<json_t> &args)> callback;
     };
 
-    std::string __id__;
+    string_t __id__;
 
-    std::map<std::string, std::map<std::string, int>> _enums;
-    std::map<std::string, int> _methods;
-    std::map<std::string, int> _properties;
-    std::map<std::string, Signal> _qsignals;
-    std::map<int, std::string> _propertyNotifySignalMap;
+    std::map<string_t, std::map<string_t, int>> _enums;
+    std::map<string_t, int> _methods;
+    std::map<string_t, int> _properties;
+    std::map<string_t, Signal> _qsignals;
+    std::map<int, string_t> _propertyNotifySignalMap;
 
-    std::map<int, json> __propertyCache__;
+    std::map<int, json_t> __propertyCache__;
     std::multimap<int, Connection> __objectSignals__;
 
-    QWebChannel *_webChannel;
+    BasicQWebChannel<json_t> *_webChannel;
 
 public:
-    /// @brief Transparent pointer class for use in QObject* (de-)serialization
+    /// @brief Transparent pointer class for use in BasicQObject* (de-)serialization
     struct Ptr
     {
-        QObject *ptr;
+        BasicQObject *ptr;
 
         Ptr() : ptr(nullptr) {}
-        Ptr(QObject *ptr) : ptr(ptr) {}
+        Ptr(BasicQObject *ptr) : ptr(ptr) {}
         Ptr(const Ptr &) = default;
         Ptr(Ptr &&) = default;
         Ptr &operator=(const Ptr& other) = default;
 
-        QObject *get() const { return *this; }
-        QObject *operator->() const { return ptr; }
-        QObject &operator*() const { return *ptr; }
-        operator QObject*() const { return ptr; }
+        BasicQObject *get() const { return *this; }
+        BasicQObject *operator->() const { return ptr; }
+        BasicQObject &operator*() const { return *ptr; }
+        operator BasicQObject*() const { return ptr; }
         operator bool() const { return bool(ptr); }
     };
 
-    ~QObject();
+    ~BasicQObject();
 
-    QWebChannel *webChannel() const { return _webChannel; }
+    BasicQWebChannel<json_t> *webChannel() const { return _webChannel; }
 
     /// @brief Returns a mapping of defined enums
     const decltype(_enums) & enums() const { return _enums; }
 
     /// @brief Returns the set of method names of this object
-    std::set<std::string> methods() const;
+    std::set<string_t> methods() const;
 
     /// @brief Returns the set of property names of this object
-    std::set<std::string> properties() const;
+    std::set<string_t> properties() const;
 
     /// @brief Returns the set of signal names of this object
-    std::set<std::string> signalNames() const;
+    std::set<string_t> signalNames() const;
 
     /// @brief Returns the notify signal name for a given object
-    std::string notifySignalForProperty(const std::string &property) const;
+    string_t notifySignalForProperty(const string_t &property) const;
 
     /// @brief Invokes a method `name` with specified arguments `args`. If one argument is callable,
     ///        it is used as the callback when the method call has finished.
     template<class... Args>
-    bool invoke(const std::string &name, Args&& ...args);
+    bool invoke(const string_t &name, Args&& ...args);
     /// @brief Invokes a method `name` with specified arguments `args`. `callback` is invoked when the method call has finished.
-    bool invoke(const std::string &name, std::vector<json> args, std::function<void(const json&)> callback = std::function<void(const json&)>());
+    bool invoke(const string_t &name, std::vector<json_t> args, std::function<void(const json_t&)> callback = std::function<void(const json_t&)>());
 
     /// @brief Connects `callback` to the signal `name`. `N` is the number of arguments.
     /// @return The connection id.
     template<size_t N, class T>
-    unsigned int connect(const std::string &name, T &&callback);
+    unsigned int connect(const string_t &name, T &&callback);
     /// @brief Connects `callback` to the signal `name`.
     /// @return The connection id.
     template<class T>
-    unsigned int connect(const std::string &name, T &&callback);
+    unsigned int connect(const string_t &name, T &&callback);
     /// @brief Connects `callback` to the signal `name`.
     /// @return The connection id.
-    unsigned int connect(const std::string &signalName, std::function<void(const std::vector<json> &)> callback);
+    unsigned int connect(const string_t &signalName, std::function<void(const std::vector<json_t> &)> callback);
 
     /// @brief Breaks the connection with identifier `id`.
     bool disconnect(unsigned int id);
 
     /// @brief Gets the value of property `name`
-    json_unwrap property(const std::string &name) const;
+    json_unwrap<json_t> property(const string_t &name) const;
     /// @brief Sets the value of property `name` to `value`
-    void set_property(const std::string &name, const json &value);
+    void set_property(const string_t &name, const json_t &value);
 
-    std::string id() const { return __id__; }
+    string_t id() const { return __id__; }
 
 private:
-    QObject(const std::string &name, const json &data, QWebChannel *channel);
+    BasicQObject(const string_t &name, const json_t &data, BasicQWebChannel<json_t> *channel);
 
-    static std::set<QObject*> &created_objects();
+    static std::set<BasicQObject*> &created_objects();
 
-    static QObject *convert(std::uintptr_t ptr);
+    static BasicQObject *convert(std::uintptr_t ptr);
 
     template<class Callable, size_t... I>
-    unsigned int connect_impl(const std::string &signal, Callable &&callable, std::index_sequence<I...>);
+    unsigned int connect_impl(const string_t &signal, Callable &&callable, std::index_sequence<I...>);
 
-    void addMethod(const json &method);
-    void bindGetterSetter(const json &propertyInfo);
-    void addSignal(const json &signalData, bool isPropertyNotifySignal);
+    void addMethod(const json_t &method);
+    void bindGetterSetter(const json_t &propertyInfo);
+    void addSignal(const json_t &signalData, bool isPropertyNotifySignal);
 
-    json unwrapQObject(const json &response);
+    json_t unwrapBasicQObject(const json_t &response);
     void unwrapProperties();
-    void propertyUpdate(const json &sigs, const json &propertyMap);
+    void propertyUpdate(const json_t &sigs, const json_t &propertyMap);
 
     /**
     * Invokes all callbacks for the given signalname. Also works for property notify callbacks.
     */
-    void invokeSignalCallbacks(int signalName, const std::vector<json> &args);
-    void signalEmitted(int signalName, const json &signalArgs);
+    void invokeSignalCallbacks(int signalName, const std::vector<json_t> &args);
+    void signalEmitted(int signalName, const json_t &signalArgs);
 
-    friend void from_json(const json &j, QObject *&o);
-    friend class QWebChannel;
+    friend void from_json<>(const json_t &j, BasicQObject<json_t> *&o);
+    friend class BasicQWebChannel<json_t>;
 };
 
+using QObject = BasicQObject<>;
 
-inline void to_json(json &j, QObject *qobj)
+template<class Json>
+void to_json(Json &j, BasicQObject<Json> *qobj)
 {
-    j = json {
+    j = Json {
         { "__ptr__", std::uintptr_t(qobj) },
     };
 }
 
-inline void to_json(json &j, QObject::Ptr qobj)
+template<class Json>
+void to_json(Json &j, typename BasicQObject<Json>::Ptr qobj)
 {
     to_json(j, qobj.ptr);
 }
 
-inline void from_json(const json &j, QObject *&o)
+template<class Json>
+void from_json(const Json &j, BasicQObject<Json> *&o)
 {
     if (j.is_null()) {
         o = nullptr;
@@ -185,10 +194,12 @@ inline void from_json(const json &j, QObject *&o)
         return;
     }
 
-    o = QObject::convert(j["__ptr__"].get<std::uintptr_t>());
+    auto ptr = j["__ptr__"].template get<std::uintptr_t>();
+    o = BasicQObject<Json>::convert(ptr);
 }
 
-inline void from_json(const json &j, QObject::Ptr &o)
+template<class Json>
+void from_json(const Json &j, typename BasicQObject<Json>::Ptr &o)
 {
     from_json(j, o.ptr);
 }

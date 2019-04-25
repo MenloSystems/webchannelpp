@@ -9,7 +9,6 @@
 #ifndef QWEBCHANNEL_FWD_H
 #define QWEBCHANNEL_FWD_H
 
-#include <string>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -23,34 +22,36 @@
 namespace WebChannelPP
 {
 
-using json = nlohmann::json;
-
 /// @brief Abstract transport class.
 ///
 /// The transport calls the registered message handle when a new message arives.
 /// `send` sends a message over the transport.
-class Transport
+template<class String>
+class BasicTransport
 {
 public:
-    typedef std::function<void(const std::string &)> message_handler;
+    typedef std::function<void(const String &)> message_handler;
 
-    virtual void send(const std::string &s) = 0;
+    virtual void send(const String &s) = 0;
     virtual void register_message_handler(message_handler handler) = 0;
 };
 
+using Transport = BasicTransport<std::string>;
+
 /// @brief Thin helper class for implicitly converting json data types
+template<class Json>
 struct json_unwrap
 {
-    json _json;
+    Json _json;
 
-    explicit json_unwrap(json &&j) : _json(j) {}
-    explicit json_unwrap(const json &j) : _json(j) {}
+    explicit json_unwrap(Json &&j) : _json(j) {}
+    explicit json_unwrap(const Json &j) : _json(j) {}
 
     template<class T>
-    operator T() { return _json.get<T>(); }
+    operator T() { return _json.template get<T>(); }
 };
 
-enum QWebChannelMessageTypes {
+enum BasicQWebChannelMessageTypes {
     QSignal = 1,
     PropertyUpdate = 2,
     Init = 3,
@@ -63,48 +64,54 @@ enum QWebChannelMessageTypes {
     Response = 10,
 };
 
-class QObject;
+template<class Json>
+class BasicQObject;
 
-class QWebChannel
+template<class Json = nlohmann::json>
+class BasicQWebChannel
 {
 public:
-    typedef std::function<void(QWebChannel*)> InitCallbackHandler;
-    typedef std::function<void(const json &)> CallbackHandler;
+    using json_t = Json;
+    using string_t = typename json_t::string_t;
+
+    typedef std::function<void(BasicQWebChannel*)> InitCallbackHandler;
+    typedef std::function<void(const json_t &)> CallbackHandler;
 
     /// @brief Initializes the webchannel with the given `transport`. Optionally, an `initCallback`
     ///        can be invoked when the webchannel has successfully been initialized.
-    QWebChannel(Transport &transport, InitCallbackHandler initCallback = InitCallbackHandler());
+    BasicQWebChannel(BasicTransport<string_t> &transport, InitCallbackHandler initCallback = InitCallbackHandler());
 
     /// @brief Returns a map of all objects exported by the webchannel
-    const std::map<std::string, QObject*> &objects() const { return _objects; }
+    const std::map<string_t, BasicQObject<json_t>*> &objects() const { return _objects; }
 
 private:
-    void connection_made(const json &data);
-    void message_handler(const std::string &msg);
+    void connection_made(const json_t &data);
+    void message_handler(const string_t &msg);
 
-    void send(const json &o);
-    void exec(json data, CallbackHandler callback = CallbackHandler());
+    void send(const json_t &o);
+    void exec(json_t data, CallbackHandler callback = CallbackHandler());
 
-    void handle_signal(const json &message);
-    void handle_response(const json &message);
-    void handle_property_update(const json &message);
+    void handle_signal(const json_t &message);
+    void handle_response(const json_t &message);
+    void handle_property_update(const json_t &message);
 
-    void debug(const json &message)
+    void debug(const json_t &message)
     {
-        this->send(json { { "type", QWebChannelMessageTypes::Debug }, { "data", message } });
+        this->send(json_t { { "type", BasicQWebChannelMessageTypes::Debug }, { "data", message } });
     }
 
-    friend class QObject;
-    friend class QSignal;
+    friend class BasicQObject<json_t>;
 
-    Transport &transport;
+    BasicTransport<string_t> &transport;
 
-    std::map<std::string, QObject*> _objects;
+    std::map<string_t, BasicQObject<json_t>*> _objects;
 
     InitCallbackHandler initCallback;
     std::map<unsigned int, CallbackHandler> execCallbacks;
     unsigned int execId = 0;
 };
+
+using QWebChannel = BasicQWebChannel<>;
 
 }
 

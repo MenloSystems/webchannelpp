@@ -15,20 +15,22 @@
 namespace WebChannelPP
 {
 
-inline QWebChannel::QWebChannel(Transport &transport, InitCallbackHandler initCallback)
+template<class Json>
+inline BasicQWebChannel<Json>::BasicQWebChannel(BasicTransport<string_t> &transport, InitCallbackHandler initCallback)
     : transport(transport), initCallback(initCallback)
 {
-    transport.register_message_handler(std::bind(&QWebChannel::message_handler, this, std::placeholders::_1));
+    transport.register_message_handler(std::bind(&BasicQWebChannel::message_handler, this, std::placeholders::_1));
 
-    this->exec(json { { "type", QWebChannelMessageTypes::Init } },
-               std::bind(&QWebChannel::connection_made, this, std::placeholders::_1));
+    this->exec(json_t { { "type", BasicQWebChannelMessageTypes::Init } },
+               std::bind(&BasicQWebChannel::connection_made, this, std::placeholders::_1));
 }
 
 
-inline void QWebChannel::connection_made(const json &data)
+template<class Json>
+inline void BasicQWebChannel<Json>::connection_made(const json_t &data)
 {
     for (auto prop = data.begin(); prop != data.end(); ++prop) {
-        new QObject(prop.key(), prop.value(), this);
+        new BasicQObject<json_t>(prop.key(), prop.value(), this);
     }
 
     // now unwrap properties, which might reference other registered objects
@@ -39,29 +41,31 @@ inline void QWebChannel::connection_made(const json &data)
         initCallback(this);
     }
 
-    this->exec(json { { "type", QWebChannelMessageTypes::Idle } });
+    this->exec(json_t { { "type", BasicQWebChannelMessageTypes::Idle } });
 }
 
 
-inline void QWebChannel::send(const json &o)
+template<class Json>
+inline void BasicQWebChannel<Json>::send(const json_t &o)
 {
     transport.send(o.dump());
 }
 
 
-inline void QWebChannel::message_handler(const std::string &msg)
+template<class Json>
+inline void BasicQWebChannel<Json>::message_handler(const string_t &msg)
 {
-    json data = json::parse(msg);
+    json_t data = json_t::parse(msg);
 
-    switch (data["type"].get<int>())
+    switch (data["type"].template get<int>())
     {
-    case QWebChannelMessageTypes::QSignal:
+    case BasicQWebChannelMessageTypes::QSignal:
         this->handle_signal(data);
         break;
-    case QWebChannelMessageTypes::Response:
+    case BasicQWebChannelMessageTypes::Response:
         this->handle_response(data);
         break;
-    case QWebChannelMessageTypes::PropertyUpdate:
+    case BasicQWebChannelMessageTypes::PropertyUpdate:
         this->handle_property_update(data);
         break;
     default:
@@ -71,7 +75,8 @@ inline void QWebChannel::message_handler(const std::string &msg)
 }
 
 
-inline void QWebChannel::exec(json data, CallbackHandler callback)
+template<class Json>
+inline void BasicQWebChannel<Json>::exec(json_t data, CallbackHandler callback)
 {
     if (!callback) {
         // if no callback is given, send directly
@@ -85,38 +90,41 @@ inline void QWebChannel::exec(json data, CallbackHandler callback)
     }
 
     data["id"] = this->execId++;
-    this->execCallbacks[data["id"].get<int>()] = callback;
+    this->execCallbacks[data["id"].template get<int>()] = callback;
     this->send(data);
 }
 
 
-inline void QWebChannel::handle_signal(const json &message)
+template<class Json>
+inline void BasicQWebChannel<Json>::handle_signal(const json_t &message)
 {
-    auto it = this->_objects.find(message["object"].get<std::string>());
+    auto it = this->_objects.find(message["object"].template get<string_t>());
     if (it != this->_objects.end()) {
-        it->second->signalEmitted(message["signal"].get<int>(), message["args"]);
+        it->second->signalEmitted(message["signal"].template get<int>(), message["args"]);
     } else {
         std::cerr << "Unhandled signal: " << message["object"] << "::" << message["signal"] << std::endl;
     }
 }
 
 
-inline void QWebChannel::handle_response(const json &message)
+template<class Json>
+inline void BasicQWebChannel<Json>::handle_response(const json_t &message)
 {
     if (!message.count("id")) {
         std::cerr << "Invalid response message received: " << message << std::endl;
         return;
     }
 
-    this->execCallbacks[message["id"].get<int>()](message["data"]);
-    this->execCallbacks.erase(message["id"].get<int>());
+    this->execCallbacks[message["id"].template get<int>()](message["data"]);
+    this->execCallbacks.erase(message["id"].template get<int>());
 }
 
 
-inline void QWebChannel::handle_property_update(const json &message)
+template<class Json>
+inline void BasicQWebChannel<Json>::handle_property_update(const json_t &message)
 {
-    for (const json &data : message["data"]) {
-        auto it = this->_objects.find(data["object"].get<std::string>());
+    for (const json_t &data : message["data"]) {
+        auto it = this->_objects.find(data["object"].template get<string_t>());
         if (it != this->_objects.end()) {
             it->second->propertyUpdate(data["signals"], data["properties"]);
         } else {
@@ -124,7 +132,7 @@ inline void QWebChannel::handle_property_update(const json &message)
         }
     }
 
-    this->exec(json { { "type", QWebChannelMessageTypes::Idle } } );
+    this->exec(json_t { { "type", BasicQWebChannelMessageTypes::Idle } } );
 }
 
 }
