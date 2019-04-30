@@ -46,6 +46,17 @@ inline void BasicQWebChannel<Json>::connection_made(const json_t &data)
 
 
 template<class Json>
+inline BasicQObject<Json> *BasicQWebChannel<Json>::object(const string_t &name) const
+{
+    auto it = _objects.find(name);
+    if (it == _objects.end()) {
+        return nullptr;
+    }
+    return it->second;
+}
+
+
+template<class Json>
 inline void BasicQWebChannel<Json>::send(const json_t &o)
 {
     transport.send(o.dump());

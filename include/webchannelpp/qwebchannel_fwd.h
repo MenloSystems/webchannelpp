@@ -84,6 +84,9 @@ public:
     /// @brief Returns a map of all objects exported by the webchannel
     const std::map<string_t, BasicQObject<json_t>*> &objects() const { return _objects; }
 
+    /// @brief Returns the object with @p name or nullptr if it doesn't exist
+    BasicQObject<json_t> *object(const string_t &name) const;
+
     /// @brief Returns whether property caching is enabled
     bool property_caching() const { return propertyCachingEnabled; }
 
