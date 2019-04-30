@@ -84,6 +84,12 @@ public:
     /// @brief Returns a map of all objects exported by the webchannel
     const std::map<string_t, BasicQObject<json_t>*> &objects() const { return _objects; }
 
+    /// @brief Returns whether property caching is enabled
+    bool property_caching() const { return propertyCachingEnabled; }
+
+    /// @brief Enables or disables property caching
+    void set_property_caching(bool enabled) { propertyCachingEnabled = enabled; }
+
 private:
     void connection_made(const json_t &data);
     void message_handler(const string_t &msg);
@@ -109,6 +115,7 @@ private:
     InitCallbackHandler initCallback;
     std::map<unsigned int, CallbackHandler> execCallbacks;
     unsigned int execId = 0;
+    bool propertyCachingEnabled = true;
 };
 
 using QWebChannel = BasicQWebChannel<>;

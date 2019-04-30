@@ -337,7 +337,9 @@ inline void BasicQObject<Json>::set_property(const string_t &name, const json_t 
         return;
     }
 
-    __propertyCache__[it->second] = value;
+    if (_webChannel->propertyCachingEnabled) {
+        __propertyCache__[it->second] = value;
+    }
 
     json_t sendval = value;
     if (sendval.count("__ptr__")) {
