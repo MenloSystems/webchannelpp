@@ -150,7 +150,7 @@ private:
     void bindGetterSetter(const json_t &propertyInfo);
     void addSignal(const json_t &signalData, bool isPropertyNotifySignal);
 
-    json_t unwrapBasicQObject(const json_t &response);
+    json_t unwrapQObject(const json_t &response);
     void unwrapProperties();
     void propertyUpdate(const json_t &sigs, const json_t &propertyMap);
 

@@ -156,22 +156,24 @@ inline void BasicQObject<Json>::addSignal(const json_t &signalData, bool isPrope
 }
 
 template<class Json>
-inline Json BasicQObject<Json>::unwrapBasicQObject(const json_t &response) {
+inline Json BasicQObject<Json>::unwrapQObject(const json_t &response) {
     if (response.is_array()) {
         // support list of objects
         json_t copy = response;
         for (json_t &j : copy) {
-            j = unwrapBasicQObject(j);
+            j = unwrapQObject(j);
         }
         return copy;
     }
 
-    if (!(response.is_object())
-            || response.is_null()
-            || !response.count("__BasicQObject*__")
-            || !response.count("id"))
-    {
+    if (!response.is_object() || response.is_null()) {
         return response;
+    } else if (!response.count("__QObject*__") || !response.count("id")) {
+        json_t obj;
+        for (auto it = response.begin(); it != response.end(); ++it) {
+            obj[it.key()] = unwrapQObject(it.value());
+        }
+        return obj;
     }
 
     const string_t objectId = response["id"];
@@ -182,7 +184,7 @@ inline Json BasicQObject<Json>::unwrapBasicQObject(const json_t &response) {
     }
 
     if (!response.count("data")) {
-        std::cerr << "Cannot unwrap unknown BasicQObject " << objectId << " without data.";
+        std::cerr << "Cannot unwrap unknown QObject " << objectId << " without data.";
         return json_t();
     }
 
@@ -206,7 +208,7 @@ template<class Json>
 inline void BasicQObject<Json>::unwrapProperties()
 {
     for (auto it = __propertyCache__.begin(); it != __propertyCache__.end(); ++it) {
-        it->second = unwrapBasicQObject(it->second);
+        it->second = unwrapQObject(it->second);
     }
 }
 
@@ -273,7 +275,7 @@ inline bool BasicQObject<Json>::invoke(const string_t &name, std::vector<json_t>
     };
 
     _webChannel->exec(msg, [this, callback](const json_t &response) {
-        json_t result = unwrapBasicQObject(response);
+        json_t result = unwrapQObject(response);
         if (callback) {
             callback(result);
         }
@@ -455,7 +457,7 @@ inline bool BasicQObject<Json>::disconnect(unsigned int id)
 template<class Json>
 inline void BasicQObject<Json>::signalEmitted(int signalName, const json_t &signalArgs)
 {
-    json_t unwrapped = unwrapBasicQObject(signalArgs);
+    json_t unwrapped = unwrapQObject(signalArgs);
     invokeSignalCallbacks(signalName, unwrapped);
 }
 
