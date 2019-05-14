@@ -292,7 +292,7 @@ inline void BasicQObject<Json>::propertyUpdate(const json_t &sigs, const json_t 
     // update property cache
     for (auto it = propertyMap.begin(); it != propertyMap.end(); ++it) {
         const int key = stoi(it.key());
-        __propertyCache__[key] = it.value();
+        __propertyCache__[key] = unwrapQObject(it.value());
     }
 
     for (auto it = sigs.begin(); it != sigs.end(); ++it) {
