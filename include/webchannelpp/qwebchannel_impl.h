@@ -111,7 +111,7 @@ inline void BasicQWebChannel<Json>::handle_signal(const json_t &message)
 {
     auto it = this->_objects.find(message["object"].template get<string_t>());
     if (it != this->_objects.end()) {
-        it->second->signalEmitted(message["signal"].template get<int>(), message["args"]);
+        it->second->signalEmitted(message["signal"].template get<int>(), message.value("args", typename Json::array_t{}));
     } else {
         std::cerr << "Unhandled signal: " << message["object"] << "::" << message["signal"] << std::endl;
     }
