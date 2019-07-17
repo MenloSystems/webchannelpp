@@ -104,6 +104,9 @@ public:
     /// @brief Returns the set of signal names of this object
     std::set<string_t> signalNames() const;
 
+    /// @brief Returns whether a signal is a property notification signal
+    bool isNotifySignal(const string_t &signalName) const;
+
     /// @brief Returns the notify signal name for a given object
     string_t notifySignalForProperty(const string_t &property) const;
 

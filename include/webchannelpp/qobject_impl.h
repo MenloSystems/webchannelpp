@@ -88,6 +88,15 @@ inline std::set<typename BasicQObject<Json>::string_t> BasicQObject<Json>::signa
 }
 
 template<class Json>
+inline bool BasicQObject<Json>::isNotifySignal(const string_t &signal) const {
+    auto it = _qsignals.find(signal);
+    if (it == _qsignals.end()) {
+        return false;
+    }
+    return it->second.isPropertyNotifySignal;
+}
+
+template<class Json>
 inline typename BasicQObject<Json>::string_t BasicQObject<Json>::notifySignalForProperty(const string_t &property) const {
     auto idIterator = _properties.find(property);
     if (idIterator == _properties.cend()) {
