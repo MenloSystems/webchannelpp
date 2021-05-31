@@ -42,10 +42,12 @@ using Transport = BasicTransport<std::string>;
 template<class Json>
 struct json_unwrap
 {
-    Json _json;
+    const Json &_json;
 
     explicit json_unwrap(Json &&j) : _json(j) {}
     explicit json_unwrap(const Json &j) : _json(j) {}
+
+    const Json &json() const { return _json; }
 
     template<class T>
     operator T() { return _json.template get<T>(); }
