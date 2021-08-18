@@ -139,7 +139,7 @@ inline void BasicQWebChannel<Json>::handle_property_update(const json_t &message
         if (it != this->_objects.end()) {
             it->second->propertyUpdate(data["signals"], data["properties"]);
         } else {
-            std::cerr << "Unhandled property update: " << data["object"] << "::" << data["signal"] << std::endl;
+            std::cerr << "Unhandled property updates: " << data["object"] << "::" << data["properties"] << std::endl;
         }
     }
 
