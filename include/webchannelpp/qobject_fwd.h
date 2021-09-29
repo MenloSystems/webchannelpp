@@ -69,6 +69,9 @@ class BasicQObject
 
     BasicQWebChannel<json_t> *_webChannel;
 
+    // For proper cleanup after all signal handlers of destroyed() have been run
+    bool _destroyAfterSignal = false;
+
 public:
     /// @brief Transparent pointer class for use in BasicQObject* (de-)serialization
     struct Ptr

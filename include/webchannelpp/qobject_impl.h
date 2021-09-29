@@ -9,6 +9,7 @@
 #ifndef QOBJECT_IMPL_H
 #define QOBJECT_IMPL_H
 
+#include <list>
 #include <type_traits>
 
 #include "qobject_fwd.h"
@@ -27,6 +28,13 @@ template <typename R, typename C, typename... Args>
 struct get_arity<R(C::*)(Args...)> : std::integral_constant<unsigned, sizeof...(Args)> {};
 template <typename R, typename C, typename... Args>
 struct get_arity<R(C::*)(Args...) const> : std::integral_constant<unsigned, sizeof...(Args)> {};
+
+template<class T>
+bool isDestroyedSignal(const T &signalName)
+{
+    return signalName == "destroyed" || signalName == "destroyed()" ||
+            signalName == "destroyed(QObject*)";
+}
 }
 
 template<class Json>
@@ -199,11 +207,15 @@ inline Json BasicQObject<Json>::unwrapQObject(const json_t &response) {
 
     BasicQObject *qObject = new BasicQObject( objectId, response["data"], _webChannel );
 
-    connect("destroyed", [this, objectId]() {
-        auto it = _webChannel->_objects.find(objectId);
-        if (it != _webChannel->_objects.end()) {
-            delete it->second;
-            _webChannel->_objects.erase(it);
+    qObject->connect("destroyed", [qObject]() {
+        auto it = qObject->_webChannel->_objects.find(qObject->id());
+        if (it != qObject->_webChannel->_objects.end()) {
+            qObject->_webChannel->_objects.erase(it);
+
+            // Toggle this flag to ensure that all signal handlers have been run
+            // before we destroy the instance. Actual destruction happens in
+            // invokeSignalCallbacks()
+            qObject->_destroyAfterSignal = true;
         }
     });
 
@@ -315,10 +327,21 @@ inline void BasicQObject<Json>::propertyUpdate(const json_t &sigs, const json_t 
 template<class Json>
 inline void BasicQObject<Json>::invokeSignalCallbacks(int signalName, const std::vector<json_t> &args)
 {
-    auto values = __objectSignals__.equal_range(signalName);
+    const auto values = __objectSignals__.equal_range(signalName);
 
+    // Copy the connections. The signal handler itself might connect/disconnect
+    // things and thus invalidate the iterators.
+    std::list<Connection> connections;
     for (auto it = values.first; it != values.second; ++it) {
-        it->second.callback(args);
+        connections.push_back(it->second);
+    }
+
+    for (const auto &conn : connections) {
+        conn.callback(args);
+    }
+
+    if (_destroyAfterSignal) {
+        delete this;
     }
 }
 
@@ -412,7 +435,7 @@ inline unsigned int BasicQObject<Json>::connect(const string_t &signalName, std:
 
     __objectSignals__.insert(std::make_pair(signalIndex, conn));
 
-    if (!isPropertyNotifySignal && signalName != "destroyed") {
+    if (!isPropertyNotifySignal && !detail::isDestroyedSignal<string_t>(signalName)) {
         // only required for "pure" signals, handled separately for properties in _propertyUpdate
         // also note that we always get notified about the destroyed signal
         json_t msg {
