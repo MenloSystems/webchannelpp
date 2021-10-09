@@ -169,7 +169,7 @@ inline void BasicQObject<Json>::addSignal(const json_t &signalData, bool isPrope
     string_t signalName = signalData[0];
     int signalIndex = signalData[1];
 
-    _qsignals.emplace(signalName, Signal { signalIndex, signalName, isPropertyNotifySignal });
+    _qsignals[signalName] = Signal{ signalIndex, signalName, isPropertyNotifySignal };
 }
 
 template<class Json>
