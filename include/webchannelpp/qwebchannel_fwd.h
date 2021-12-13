@@ -26,17 +26,15 @@ namespace WebChannelPP
 ///
 /// The transport calls the registered message handle when a new message arives.
 /// `send` sends a message over the transport.
-template<class String>
+template<class Json = nlohmann::json>
 class BasicTransport
 {
 public:
-    typedef std::function<void(const String &)> message_handler;
+    typedef std::function<void(const Json &)> message_handler;
 
-    virtual void send(const String &s) = 0;
+    virtual void send(const Json &s) = 0;
     virtual void register_message_handler(message_handler handler) = 0;
 };
-
-using Transport = BasicTransport<std::string>;
 
 /// @brief Thin helper class for implicitly converting json data types
 template<class Json>
@@ -81,7 +79,7 @@ public:
 
     /// @brief Initializes the webchannel with the given `transport`. Optionally, an `initCallback`
     ///        can be invoked when the webchannel has successfully been initialized.
-    BasicQWebChannel(BasicTransport<string_t> &transport, InitCallbackHandler initCallback = InitCallbackHandler());
+    BasicQWebChannel(BasicTransport<json_t> &transport, InitCallbackHandler initCallback = InitCallbackHandler());
 
     /// @brief Returns a map of all objects exported by the webchannel
     const std::map<string_t, BasicQObject<json_t>*> &objects() const { return _objects; }
@@ -104,7 +102,7 @@ public:
 
 private:
     void connection_made(const json_t &data);
-    void message_handler(const string_t &msg);
+    void message_handler(const json_t &msg);
 
     void send(const json_t &o);
     void exec(json_t data, CallbackHandler callback = CallbackHandler());
@@ -120,7 +118,7 @@ private:
 
     friend class BasicQObject<json_t>;
 
-    BasicTransport<string_t> &transport;
+    BasicTransport<json_t> &transport;
 
     std::map<string_t, BasicQObject<json_t>*> _objects;
 
@@ -131,6 +129,7 @@ private:
     bool _autoIdle = true;
 };
 
+using Transport = BasicTransport<>;
 using QWebChannel = BasicQWebChannel<>;
 
 }

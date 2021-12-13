@@ -16,7 +16,7 @@ namespace WebChannelPP
 {
 
 template<class Json>
-inline BasicQWebChannel<Json>::BasicQWebChannel(BasicTransport<string_t> &transport, InitCallbackHandler initCallback)
+inline BasicQWebChannel<Json>::BasicQWebChannel(BasicTransport<json_t> &transport, InitCallbackHandler initCallback)
     : transport(transport), initCallback(initCallback)
 {
     transport.register_message_handler(std::bind(&BasicQWebChannel::message_handler, this, std::placeholders::_1));
@@ -79,15 +79,13 @@ inline BasicQObject<Json> *BasicQWebChannel<Json>::object(const string_t &name) 
 template<class Json>
 inline void BasicQWebChannel<Json>::send(const json_t &o)
 {
-    transport.send(o.dump());
+    transport.send(o);
 }
 
 
 template<class Json>
-inline void BasicQWebChannel<Json>::message_handler(const string_t &msg)
+inline void BasicQWebChannel<Json>::message_handler(const json_t &data)
 {
-    json_t data = json_t::parse(msg);
-
     switch (data["type"].template get<int>())
     {
     case BasicQWebChannelMessageTypes::QSignal:
