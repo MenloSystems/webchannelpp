@@ -95,6 +95,13 @@ public:
     /// @brief Enables or disables property caching
     void set_property_caching(bool enabled) { propertyCachingEnabled = enabled; }
 
+    /// @brief Returns whether auto-idling after processing property updates is enabled
+    bool auto_idle() const { return _autoIdle; }
+    /// @brief Enable or disable auto-idling after processing property updates
+    void set_auto_idle(bool enabled);
+    /// @brief Explicitly notify the host that the client is idle
+    void idle();
+
 private:
     void connection_made(const json_t &data);
     void message_handler(const string_t &msg);
@@ -121,6 +128,7 @@ private:
     std::map<unsigned int, CallbackHandler> execCallbacks;
     unsigned int execId = 0;
     bool propertyCachingEnabled = true;
+    bool _autoIdle = true;
 };
 
 using QWebChannel = BasicQWebChannel<>;

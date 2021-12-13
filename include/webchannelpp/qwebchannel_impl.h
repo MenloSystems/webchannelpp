@@ -25,6 +25,20 @@ inline BasicQWebChannel<Json>::BasicQWebChannel(BasicTransport<string_t> &transp
                std::bind(&BasicQWebChannel::connection_made, this, std::placeholders::_1));
 }
 
+template<class Json>
+inline void BasicQWebChannel<Json>::set_auto_idle(bool enabled)
+{
+    _autoIdle = enabled;
+    if (_autoIdle) {
+        idle();
+    }
+}
+
+template<class Json>
+inline void BasicQWebChannel<Json>::idle()
+{
+    this->exec(json_t { { "type", BasicQWebChannelMessageTypes::Idle } } );
+}
 
 template<class Json>
 inline void BasicQWebChannel<Json>::connection_made(const json_t &data)
@@ -143,7 +157,9 @@ inline void BasicQWebChannel<Json>::handle_property_update(const json_t &message
         }
     }
 
-    this->exec(json_t { { "type", BasicQWebChannelMessageTypes::Idle } } );
+    if (_autoIdle) {
+        idle();
+    }
 }
 
 }
