@@ -55,7 +55,9 @@ inline void BasicQWebChannel<Json>::connection_made(const json_t &data)
         initCallback(this);
     }
 
-    this->exec(json_t { { "type", BasicQWebChannelMessageTypes::Idle } });
+    if (_autoIdle) {
+        idle();
+    }
 }
 
 
