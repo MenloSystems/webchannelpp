@@ -28,6 +28,10 @@ inline BasicQWebChannel<Json>::BasicQWebChannel(BasicTransport<string_t> &transp
 template<class Json>
 inline void BasicQWebChannel<Json>::set_auto_idle(bool enabled)
 {
+    if (_autoIdle == enabled) {
+        return;
+    }
+
     _autoIdle = enabled;
     if (_autoIdle) {
         idle();
