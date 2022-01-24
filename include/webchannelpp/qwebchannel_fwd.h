@@ -40,16 +40,20 @@ public:
 template<class Json>
 struct json_unwrap
 {
+    static const Json NullJson;
+
     const Json &_json;
 
-    explicit json_unwrap(Json &&j) : _json(j) {}
+    json_unwrap() : _json(NullJson) {}
     explicit json_unwrap(const Json &j) : _json(j) {}
-
     const Json &json() const { return _json; }
 
     template<class T>
     operator T() { return _json.template get<T>(); }
 };
+
+template<class Json>
+const Json json_unwrap<Json>::NullJson {};
 
 enum BasicQWebChannelMessageTypes {
     QSignal = 1,

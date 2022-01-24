@@ -350,13 +350,13 @@ inline json_unwrap<Json> BasicQObject<Json>::property(const string_t &name) cons
 {
     auto it = _properties.find(name);
     if (it == _properties.end()) {
-        std::cerr << "Property " << __id__ << "::" << name << " not found.";
-        return json_unwrap<json_t>(json_t());
+        std::cerr << "Property " << __id__ << "::" << name << " not found." << std::endl;
+        return json_unwrap<json_t>{};
     }
 
     auto cacheIt = __propertyCache__.find(it->second);
     if (cacheIt == __propertyCache__.end()) {
-        return json_unwrap<json_t>(json_t());
+        return json_unwrap<json_t>{};
     }
 
     return json_unwrap<json_t>(cacheIt->second);
