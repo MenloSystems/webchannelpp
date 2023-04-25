@@ -169,7 +169,15 @@ inline void BasicQObject<Json>::addSignal(const json_t &signalData, bool isPrope
     string_t signalName = signalData[0];
     int signalIndex = signalData[1];
 
-    _qsignals[signalName] = Signal{ signalIndex, signalName, isPropertyNotifySignal };
+    // If a signal already exists, only allow replacing it with a signal
+    // of the same "kind". Otherwise, we might replace a property notify signal
+    // with a pure signal, preventing the user from reacting to property updates.
+    const bool exists = _qsignals.find(signalName) != _qsignals.end();
+    Signal &signal = _qsignals[signalName];
+    if (exists && signal.isPropertyNotifySignal != isPropertyNotifySignal) {
+        return;
+    }
+    signal = Signal{signalIndex, signalName, isPropertyNotifySignal};
 }
 
 template<class Json>
