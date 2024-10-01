@@ -56,6 +56,8 @@ class BasicQObject
         std::function<void(const std::vector<json_t> &args)> callback;
     };
 
+    static constexpr int PropertyChangedSignalId = -1;
+
     string_t __id__;
 
     std::map<string_t, std::map<string_t, int>> _enums;
@@ -112,6 +114,9 @@ public:
 
     /// @brief Returns the notify signal name for a given object
     string_t notifySignalForProperty(const string_t &property) const;
+
+    /// @brief Returns the name of the property with @p id
+    string_t propertyName(int id) const;
 
     /// @brief Invokes a method `name` with specified arguments `args`. If one argument is callable,
     ///        it is used as the callback when the method call has finished.

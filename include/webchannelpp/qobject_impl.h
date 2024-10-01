@@ -62,6 +62,7 @@ inline BasicQObject<Json>::BasicQObject(const string_t &name, const json_t &data
             addSignal(signal, false);
         }
     }
+    addSignal(json_t{"__propertyChanged", PropertyChangedSignalId}, true);
 
     if (data.count("enums")) {
         _enums = data["enums"].template get<decltype(_enums)>();
@@ -116,6 +117,18 @@ inline typename BasicQObject<Json>::string_t BasicQObject<Json>::notifySignalFor
         return string_t();
     }
     return signalIterator->second;
+}
+
+template<class Json>
+inline typename BasicQObject<Json>::string_t BasicQObject<Json>::propertyName(int id) const {
+    auto idIterator = std::find_if(_properties.begin(), _properties.end(),
+                                   [id](const std::pair<string_t, int> &p) {
+                                       return p.second == id;
+                                   });
+    if (idIterator == _properties.cend()) {
+        return string_t();
+    }
+    return idIterator->first;
 }
 
 template<class Json>
@@ -318,10 +331,18 @@ inline void BasicQObject<Json>::propertyUpdate(const json_t &sigs, const json_t 
 {
     using std::stoi;
 
+    std::vector<int> changedProperties;
+    changedProperties.reserve(propertyMap.size());
+
     // update property cache
     for (auto it = propertyMap.begin(); it != propertyMap.end(); ++it) {
         const int key = stoi(it.key());
         __propertyCache__[key] = unwrapQObject(it.value());
+        changedProperties.push_back(key);
+    }
+
+    for (auto id : changedProperties) {
+        invokeSignalCallbacks(PropertyChangedSignalId, {id});
     }
 
     for (auto it = sigs.begin(); it != sigs.end(); ++it) {
